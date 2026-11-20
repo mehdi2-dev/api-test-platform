@@ -1,0 +1,17 @@
+[project]
+name = "api-test-platform-backend"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# alembic/ klasör adı, kurulu alembic paketiyle karıştığı için import sıralaması kontrolünden muaf
+extend-exclude = ["alembic"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

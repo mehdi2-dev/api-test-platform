@@ -1,0 +1,70 @@
+# Tüm platform tek komutla:  docker compose up --build
+# Sadece altyapı (yerel geliştirme için):  docker compose up db redis
+
+x-backend-common: &backend-common
+  build: ./backend
+  env_file: .env
+  volumes:
+    - ./backend:/app        # kod değişiklikleri anında konteynere yansır
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-apitest}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apitest}
+      POSTGRES_DB: ${POSTGRES_DB:-apitest}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-apitest} -d ${POSTGRES_DB:-apitest}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    <<: *backend-common
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "8000:8000"
+
+  worker:
+    <<: *backend-common
+    command: celery -A app.worker.celery_app worker --loglevel=info -Q default,test_runs
+
+  beat:
+    <<: *backend-common
+    # Beat'in zamanlama dosyasını /tmp'ye yaz (kod klasörünü kirletmesin)
+    command: celery -A app.worker.celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
+
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules     # konteynerdeki node_modules'u koru
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
