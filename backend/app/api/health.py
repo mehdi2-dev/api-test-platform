@@ -52,6 +52,16 @@ def check_redis() -> CheckStatus:
         503: {
             "model": HealthResponse,
             "description": "Veritabanı veya Redis'e ulaşılamıyor",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "app": "API Test Otomasyon Platformu",
+                        "environment": "development",
+                        "checks": {"database": "ok", "redis": "error"},
+                    },
+                },
+            },
         },
     },
 )
