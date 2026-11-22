@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
+    # Token/şifre gibi gizli değerleri şifreleyen Fernet anahtarı.
+    # Boş bırakılırsa SECRET_KEY'den türetilir. Üretmek için:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    encryption_key: str = ""
+
+    # Test edilen API'lere giden isteklerin zaman aşımı (saniye)
+    request_timeout_seconds: float = 30.0
+
     # Veritabanında hiç kullanıcı yoksa açılışta oluşturulan ilk admin
     first_admin_email: str = "admin@apitest.com"
     first_admin_password: str = "Admin12345"

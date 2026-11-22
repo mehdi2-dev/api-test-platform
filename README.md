@@ -61,6 +61,18 @@ sağ üstteki **Authorize** düğmesine yapıştır. Roller: **admin** (her şey
 yönetimi), **tester** (test oluşturma ve çalıştırma), **viewer** (sadece görüntüleme).
 Veritabanını da silmek için: `docker compose down -v`.
 
+### API tanımlama
+
+Sol menüden **API'ler → + Yeni API**: metod, URL, query parametreleri, header'lar, body
+(JSON doğrulamalı) ve kimlik doğrulama (Bearer, Basic, API Key) girilir.
+**Kaydet ve Gönder** isteği hemen çalıştırır; durum kodu, süre (ms), cevap ve gönderilen
+istek görünür.
+
+- Token, şifre ve API anahtarı veritabanında **şifreli** saklanır (`ENCRYPTION_KEY`) ve
+  ekranda / API cevaplarında `********` olarak **maskelenir**.
+- Docker içinden kendi API'mizi denemek için URL: `http://localhost:8000/api/health`
+  (konteynerin içinde `localhost` backend'in kendisidir).
+
 ## Docker'sız geliştirme (VS Code'da)
 
 PostgreSQL ve Redis'i yine Docker'dan çalıştırmak en kolayı:

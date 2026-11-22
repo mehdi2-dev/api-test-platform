@@ -4,5 +4,6 @@ Yeni model eklediğinizde buraya da ekleyin.
 """
 
 from app.db.base import Base  # noqa: F401
+from app.models.api_definition import ApiDefinition, AuthType, BodyType, HttpMethod  # noqa: F401
 from app.models.app_info import AppInfo  # noqa: F401
 from app.models.user import Role, User  # noqa: F401

@@ -20,6 +20,24 @@ const routes = [
     meta: { title: 'Kullanıcılar', roles: ['admin'] },
   },
   {
+    path: '/apis',
+    name: 'apis',
+    component: () => import('@/views/ApisView.vue'),
+    meta: { title: "API'ler" },
+  },
+  {
+    path: '/apis/new',
+    name: 'api-new',
+    component: () => import('@/views/ApiEditView.vue'),
+    meta: { title: 'Yeni API', roles: ['admin', 'tester'] },
+  },
+  {
+    path: '/apis/:id(\\d+)',
+    name: 'api-edit',
+    component: () => import('@/views/ApiEditView.vue'),
+    meta: { title: 'API' },
+  },
+  {
     path: '/403',
     name: 'forbidden',
     component: () => import('@/views/ForbiddenView.vue'),

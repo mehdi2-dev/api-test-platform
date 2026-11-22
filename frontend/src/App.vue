@@ -8,6 +8,8 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const blankLayout = computed(() => route.meta.layout === 'blank')
+// /apis/5 gibi alt sayfalarda da menüdeki "API'ler" seçili görünsün
+const inApis = computed(() => route.path.startsWith('/apis'))
 
 function logout() {
   auth.logout()
@@ -27,7 +29,9 @@ function logout() {
         <RouterLink v-if="auth.hasRole('admin')" to="/users" data-testid="nav-users">
           Kullanıcılar
         </RouterLink>
-        <span class="nav-soon" title="ATOP-25">API'ler</span>
+        <RouterLink to="/apis" data-testid="nav-apis" :class="{ 'nav-active': inApis }">
+          API'ler
+        </RouterLink>
         <span class="nav-soon" title="ATOP-29">Ortamlar</span>
         <span class="nav-soon" title="ATOP-37">Koleksiyonlar</span>
         <span class="nav-soon" title="ATOP-46">Test Geçmişi</span>
