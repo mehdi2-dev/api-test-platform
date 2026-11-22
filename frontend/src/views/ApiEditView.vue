@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import api from '@/api/client'
 import { errorCode, errorMessage } from '@/api/errors'
+import AssertionEditor from '@/components/AssertionEditor.vue'
 import KeyValueEditor from '@/components/KeyValueEditor.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useEnvironmentStore } from '@/stores/environment'
@@ -43,6 +44,7 @@ const emptyForm = () => ({
   body_type: 'none',
   body: '',
   auth: emptyAuth(),
+  assertions: [{ type: 'status_code', target: '', operator: 'equals', expected: '200', enabled: true }],
 })
 
 const form = reactive(emptyForm())
@@ -52,8 +54,9 @@ const saving = ref(false)
 const sending = ref(false)
 const error = ref('')
 const notice = ref('')
-const result = ref(null)
-const resultTab = ref('body')
+const result = ref(null) // son çalıştırmanın kaydı (TestRun)
+const resultTab = ref('tests')
+const runs = ref([]) // bu API'nin son çalıştırmaları
 let loadedId = null
 // Kayıtlı (maskeli) gizli değeri olan alanlar; boş bırakılırsa maske geri konur
 const savedSecrets = new Set()
@@ -78,6 +81,11 @@ function fill(data) {
     body_type: data.body_type,
     body: data.body ?? '',
     auth: { ...emptyAuth(), ...authData },
+    assertions: (data.assertions ?? []).map((rule) => ({
+      ...rule,
+      target: rule.target ?? '',
+      expected: rule.expected ?? '',
+    })),
   })
 }
 
@@ -91,6 +99,7 @@ async function load() {
     Object.assign(form, emptyForm())
     savedSecrets.clear()
     result.value = null
+    runs.value = []
     return
   }
   loading.value = true
@@ -99,6 +108,7 @@ async function load() {
     const { data } = await api.get(`/apis/${id}`)
     fill(data)
     loadedId = id
+    await loadRuns()
   } catch (err) {
     error.value = errorMessage(err, 'API tanımı yüklenemedi')
   } finally {
@@ -171,6 +181,13 @@ function buildPayload() {
     body_type: form.body_type,
     body: form.body_type === 'none' ? null : form.body,
     auth: authPayload,
+    assertions: form.assertions.map((rule) => ({
+      type: rule.type,
+      target: rule.target?.trim() || null,
+      operator: rule.operator,
+      expected: rule.expected === '' ? null : rule.expected,
+      enabled: rule.enabled,
+    })),
   }
 }
 
@@ -203,7 +220,7 @@ async function save() {
   }
 }
 
-async function send() {
+async function run() {
   const saved = await save()
   if (!saved) return
   notice.value = ''
@@ -211,7 +228,7 @@ async function send() {
   const options = { environment_id: envStore.activeId }
   try {
     try {
-      const { data } = await api.post(`/apis/${saved.id}/send`, options)
+      const { data } = await api.post(`/apis/${saved.id}/run`, options)
       result.value = data
     } catch (err) {
       // Production koruması: veri değiştiren istek için kullanıcıdan açık onay iste
@@ -220,18 +237,49 @@ async function send() {
         notice.value = 'İstek gönderilmedi'
         return
       }
-      const { data } = await api.post(`/apis/${saved.id}/send`, {
+      const { data } = await api.post(`/apis/${saved.id}/run`, {
         ...options,
         confirm_production: true,
       })
       result.value = data
     }
-    resultTab.value = 'body'
+    resultTab.value = result.value.assertion_results.length ? 'tests' : 'body'
+    await loadRuns()
   } catch (err) {
-    error.value = errorMessage(err, 'İstek gönderilemedi')
+    error.value = errorMessage(err, 'Test çalıştırılamadı')
   } finally {
     sending.value = false
   }
+}
+
+// --- Son çalıştırmalar ---
+
+async function loadRuns() {
+  const id = loadedId ?? Number(route.params.id)
+  if (!id) return
+  try {
+    const { data } = await api.get('/runs', { params: { api_id: id, limit: 10 } })
+    runs.value = data
+  } catch {
+    runs.value = []
+  }
+}
+
+async function showRun(summary) {
+  error.value = ''
+  try {
+    const { data } = await api.get(`/runs/${summary.id}`)
+    result.value = data
+    resultTab.value = data.assertion_results.length ? 'tests' : 'body'
+  } catch (err) {
+    error.value = errorMessage(err, 'Kayıt açılamadı')
+  }
+}
+
+const RUN_LABELS = { passed: 'Geçti', failed: 'Kaldı', error: 'Hata' }
+
+function formatTime(value) {
+  return new Date(value).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'medium' })
 }
 
 // --- Kullanılan değişkenler ve aktif ortam ---
@@ -267,9 +315,12 @@ const statusClass = computed(() => {
 })
 
 const prettyBody = computed(() => {
-  if (!result.value) return ''
-  const { body_json: bodyJson, body } = result.value
-  return bodyJson !== null && bodyJson !== undefined ? JSON.stringify(bodyJson, null, 2) : body
+  const body = result.value?.response?.body ?? ''
+  try {
+    return body.trim() ? JSON.stringify(JSON.parse(body), null, 2) : ''
+  } catch {
+    return body // JSON değilse olduğu gibi göster
+  }
 })
 
 function formatSize(bytes) {
@@ -354,6 +405,14 @@ const enabledCount = (list) => list.filter((row) => row.enabled && row.key.trim(
         <button type="button" :class="{ 'tab--active': tab === 'body' }" @click="tab = 'body'">
           Body
         </button>
+        <button
+          type="button"
+          :class="{ 'tab--active': tab === 'tests' }"
+          data-testid="tab-tests"
+          @click="tab = 'tests'"
+        >
+          Testler <span class="muted">({{ form.assertions.filter((r) => r.enabled).length }})</span>
+        </button>
         <button type="button" :class="{ 'tab--active': tab === 'auth' }" @click="tab = 'auth'">
           Kimlik doğrulama
         </button>
@@ -418,6 +477,10 @@ const enabledCount = (list) => list.filter((row) => row.enabled && row.key.trim(
         <p v-if="form.body_type !== 'none' && ['GET', 'HEAD'].includes(form.method)" class="muted">
           Not: {{ form.method }} isteklerinde body genelde kullanılmaz.
         </p>
+      </fieldset>
+
+      <fieldset v-show="tab === 'tests'" class="tab-panel" :disabled="!canEdit || saving">
+        <AssertionEditor v-model="form.assertions" :readonly="!canEdit" />
       </fieldset>
 
       <fieldset v-show="tab === 'auth'" class="tab-panel" :disabled="!canEdit || saving">
@@ -495,10 +558,10 @@ const enabledCount = (list) => list.filter((row) => row.enabled && row.key.trim(
         <button
           type="button"
           :disabled="saving || sending"
-          data-testid="api-send"
-          @click="send"
+          data-testid="api-run"
+          @click="run"
         >
-          {{ sending ? 'Gönderiliyor…' : 'Kaydet ve Gönder' }}
+          {{ sending ? 'Çalışıyor…' : 'Kaydet ve Çalıştır' }}
         </button>
         <button type="submit" class="btn-secondary" :disabled="saving" data-testid="api-save">
           {{ saving ? 'Kaydediliyor…' : 'Kaydet' }}
@@ -508,18 +571,26 @@ const enabledCount = (list) => list.filter((row) => row.enabled && row.key.trim(
 
     <div v-if="result" class="card result-card" data-testid="api-result">
       <div class="result-summary">
+        <span class="run-badge" :class="`run--${result.status}`" data-testid="run-status">
+          {{ RUN_LABELS[result.status] }}
+        </span>
         <span v-if="result.status_code" class="status-pill" :class="statusClass">
           {{ result.status_code }}
         </span>
-        <span v-else class="status-pill status--error">Cevap yok</span>
         <span><b>{{ result.elapsed_ms }}</b> ms</span>
-        <span v-if="result.environment" class="muted">Ortam: {{ result.environment }}</span>
-        <span v-if="result.ok" class="muted">{{ formatSize(result.size_bytes) }}</span>
+        <span v-if="result.response" class="muted">{{ formatSize(result.response.size_bytes) }}</span>
+        <span v-if="result.environment_name" class="muted">Ortam: {{ result.environment_name }}</span>
+        <span v-if="result.assertion_results.length" class="muted">
+          {{ result.passed_count }}/{{ result.assertion_results.length }} kural geçti
+        </span>
       </div>
 
       <p v-if="result.error" class="form-error" data-testid="result-error">{{ result.error }}</p>
 
       <nav class="tabs">
+        <button :class="{ 'tab--active': resultTab === 'tests' }" @click="resultTab = 'tests'">
+          Testler
+        </button>
         <button :class="{ 'tab--active': resultTab === 'body' }" @click="resultTab = 'body'">
           Cevap
         </button>
@@ -531,16 +602,44 @@ const enabledCount = (list) => list.filter((row) => row.enabled && row.key.trim(
         </button>
       </nav>
 
-      <pre v-if="resultTab === 'body'" class="code-block" data-testid="result-body">{{
-        prettyBody || '(boş cevap)'
-      }}</pre>
-      <p v-if="resultTab === 'body' && result.truncated" class="muted">
-        Cevap çok uzun olduğu için kısaltıldı.
-      </p>
+      <div v-if="resultTab === 'tests'" data-testid="result-tests">
+        <p v-if="!result.assertion_results.length" class="muted">
+          Bu API için kural yok. <b>Testler</b> sekmesinden kural ekleyin.
+        </p>
+        <ul class="rule-results">
+          <li
+            v-for="(item, i) in result.assertion_results"
+            :key="i"
+            :class="item.passed ? 'rule--passed' : 'rule--failed'"
+          >
+            <span class="rule-icon">{{ item.passed ? '✓' : '✗' }}</span>
+            <div>
+              <div>
+                <b>{{ item.type }}</b>
+                <code v-if="item.target">{{ item.target }}</code>
+                {{ item.operator }}
+                <code v-if="item.expected !== null">{{ item.expected }}</code>
+              </div>
+              <div class="muted small-text">
+                {{ item.message }}<template v-if="item.actual !== null">
+                  · gelen: <code>{{ item.actual }}</code></template
+                >
+              </div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <template v-if="resultTab === 'body'">
+        <pre class="code-block" data-testid="result-body">{{ prettyBody || '(boş cevap)' }}</pre>
+        <p v-if="result.response?.truncated" class="muted">
+          Cevap çok uzun olduğu için kısaltıldı.
+        </p>
+      </template>
 
       <table v-if="resultTab === 'headers'" class="table compact">
         <tbody>
-          <tr v-for="(value, key) in result.headers" :key="key">
+          <tr v-for="(value, key) in result.response?.headers ?? {}" :key="key">
             <th>{{ key }}</th>
             <td>{{ value }}</td>
           </tr>
@@ -564,6 +663,31 @@ const enabledCount = (list) => list.filter((row) => row.enabled && row.key.trim(
         </table>
         <p class="muted small">Gizli değerler (token, şifre, API anahtarı) maskelenmiştir.</p>
       </div>
+    </div>
+
+    <div v-if="runs.length" class="card runs-card" data-testid="recent-runs">
+      <h2>Son çalıştırmalar</h2>
+      <table class="table compact runs-table">
+        <tbody>
+          <tr
+            v-for="item in runs"
+            :key="item.id"
+            :class="{ 'run-row--selected': result && result.id === item.id }"
+            @click="showRun(item)"
+          >
+            <td>
+              <span class="run-badge" :class="`run--${item.status}`">
+                {{ RUN_LABELS[item.status] }}
+              </span>
+            </td>
+            <td>{{ item.status_code ?? '—' }}</td>
+            <td>{{ item.elapsed_ms }} ms</td>
+            <td class="muted">{{ item.environment_name ?? 'ortamsız' }}</td>
+            <td class="muted">{{ item.passed_count }}/{{ item.passed_count + item.failed_count }}</td>
+            <td class="muted">{{ formatTime(item.created_at) }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 </template>

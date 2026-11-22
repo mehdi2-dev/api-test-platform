@@ -228,3 +228,29 @@ fieldset:disabled input, fieldset:disabled textarea { background: #f9fafb; }
 .var-chip { font-family: ui-monospace, monospace; font-size: 0.8rem; padding: 1px 8px; border-radius: 999px; }
 .var-chip--ok { background: #dcfce7; color: #166534; }
 .var-chip--missing { background: #fee2e2; color: #991b1b; }
+
+/* --- Test kuralları ve sonuçları --- */
+.assertions { display: flex; flex-direction: column; gap: 8px; }
+.assertion-row { display: grid; grid-template-columns: auto 150px 1.4fr 170px 1fr 36px; gap: 8px; align-items: center; }
+.assertion-gap { display: block; }
+.mono { font-family: ui-monospace, monospace; font-size: 0.9rem; }
+.assertion-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.run-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; }
+.run--passed { background: #dcfce7; color: #166534; }
+.run--failed { background: #fee2e2; color: #991b1b; }
+.run--error { background: #fef3c7; color: #92400e; }
+
+.rule-results { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.rule-results li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 12px; border-radius: 8px; }
+.rule--passed { background: #f0fdf4; }
+.rule--failed { background: #fef2f2; }
+.rule-icon { font-weight: 700; width: 16px; }
+.rule--passed .rule-icon { color: var(--ok); }
+.rule--failed .rule-icon { color: var(--error); }
+
+.runs-card { margin-top: 16px; }
+.runs-card h2 { margin-bottom: 8px; }
+.runs-table tr { cursor: pointer; }
+.runs-table tr:hover td { background: #f9fafb; }
+.run-row--selected td { background: #eff6ff; }

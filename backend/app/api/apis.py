@@ -5,6 +5,7 @@ Yetkiler:
 - Admin ve Tester: oluşturabilir, değiştirebilir, silebilir, gönderebilir
 """
 
+from dataclasses import dataclass, field
 from typing import Annotated, Any
 
 import httpx
@@ -27,8 +28,11 @@ from app.schemas.api_definition import (
     check_json_body,
     masked_auth,
 )
+from app.schemas.assertion import TestRunRead
 from app.schemas.environment import SendOptions
 from app.services import http_runner
+from app.services.assertions import evaluate
+from app.services.test_runs import run_to_read, save_run
 
 router = APIRouter(
     prefix="/apis",
@@ -81,6 +85,7 @@ def _to_read(api: ApiDefinition) -> ApiDefinitionRead:
         body_type=api.body_type,
         body=api.body,
         auth=masked_auth(api.auth_type, _stored_auth(api)),
+        assertions=api.assertions or [],
         created_by_id=api.created_by_id,
         created_at=api.created_at,
         updated_at=api.updated_at,
@@ -132,6 +137,7 @@ def create_api(body: ApiDefinitionCreate, user: Editor, db: DbSession) -> ApiDef
         query_params=[item.model_dump() for item in body.query_params],
         body_type=body.body_type,
         body=body.body,
+        assertions=[item.model_dump(mode="json") for item in body.assertions],
         auth_type=AuthType.NONE,
         created_by_id=user.id,
     )
@@ -162,7 +168,7 @@ def update_api(
     api_id: int, body: ApiDefinitionUpdate, _: Editor, db: DbSession
 ) -> ApiDefinitionRead:
     api = _get_or_404(db, api_id)
-    changes = body.model_dump(exclude_unset=True, exclude={"auth"})
+    changes = body.model_dump(exclude_unset=True, exclude={"auth", "assertions"})
 
     # Body tipi ve içeriği birlikte geçerli olmalı (biri eski, biri yeni olabilir)
     try:
@@ -170,15 +176,17 @@ def update_api(
     except ValueError as exc:
         raise HTTPException(422, detail=str(exc)) from exc
 
-    for field in ("name", "method", "url", "body_type"):
-        if changes.get(field) is not None:
-            setattr(api, field, changes[field])
-    for field in ("description", "body"):
-        if field in changes:
-            setattr(api, field, changes[field])
-    for field in ("headers", "query_params"):
-        if changes.get(field) is not None:
-            setattr(api, field, changes[field])
+    for attr in ("name", "method", "url", "body_type"):
+        if changes.get(attr) is not None:
+            setattr(api, attr, changes[attr])
+    for attr in ("description", "body"):
+        if attr in changes:
+            setattr(api, attr, changes[attr])
+    for attr in ("headers", "query_params"):
+        if changes.get(attr) is not None:
+            setattr(api, attr, changes[attr])
+    if body.assertions is not None:
+        api.assertions = [item.model_dump(mode="json") for item in body.assertions]
 
     if body.auth is not None:
         _apply_auth(api, body.auth, previous=_stored_auth(api))
@@ -197,6 +205,54 @@ def update_api(
 def delete_api(api_id: int, _: Editor, db: DbSession) -> None:
     db.delete(_get_or_404(db, api_id))
     db.commit()
+
+
+@dataclass
+class _Context:
+    variables: dict[str, str] = field(default_factory=dict)
+    secrets: list[str] = field(default_factory=list)
+    environment_name: str | None = None
+
+
+def _prepare(db: DbSession, api: ApiDefinition, options: SendOptions) -> _Context:
+    """Ortam değişkenlerini yükler ve Production kuralını uygular (ATOP-30)."""
+    context = _Context()
+    if options.environment_id is None:
+        return context
+
+    environment = get_environment_or_404(db, options.environment_id)
+    context.environment_name = environment.name
+    context.variables, context.secrets = variable_values(environment)
+
+    if (
+        environment.is_production
+        and api.method in MUTATING_METHODS
+        and not options.confirm_production
+    ):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "code": PRODUCTION_CONFIRMATION,
+                "message": (
+                    f"'{environment.name}' bir Production ortamı ve {api.method.value} "
+                    "isteği gerçek verileri değiştirebilir. Emin misiniz?"
+                ),
+            },
+        )
+    return context
+
+
+def _send(
+    api: ApiDefinition, context: _Context, transport: httpx.BaseTransport | None
+) -> SendResult:
+    return http_runner.send(
+        api,
+        _stored_auth(api),
+        transport=transport,
+        variables=context.variables,
+        secret_values=context.secrets,
+        environment_name=context.environment_name,
+    )
 
 
 @router.post(
@@ -237,37 +293,31 @@ def send_api(
     options: SendOptions | None = None,
 ) -> SendResult:
     api = _get_or_404(db, api_id)
-    options = options or SendOptions()
+    context = _prepare(db, api, options or SendOptions())
+    return _send(api, context, transport)
 
-    variables: dict[str, str] = {}
-    secrets: list[str] = []
-    environment_name: str | None = None
-    if options.environment_id is not None:
-        environment = get_environment_or_404(db, options.environment_id)
-        environment_name = environment.name
-        variables, secrets = variable_values(environment)
 
-        if (
-            environment.is_production
-            and api.method in MUTATING_METHODS
-            and not options.confirm_production
-        ):
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                detail={
-                    "code": PRODUCTION_CONFIRMATION,
-                    "message": (
-                        f"'{environment.name}' bir Production ortamı ve {api.method.value} "
-                        "isteği gerçek verileri değiştirebilir. Emin misiniz?"
-                    ),
-                },
-            )
-
-    return http_runner.send(
-        api,
-        _stored_auth(api),
-        transport=transport,
-        variables=variables,
-        secret_values=secrets,
-        environment_name=environment_name,
-    )
+@router.post(
+    "/{api_id}/run",
+    response_model=TestRunRead,
+    summary="Testi çalıştır: gönder, kuralları uygula, sonucu kaydet",
+    description=(
+        "send ile aynı isteği gönderir; ardından API'nin kurallarını (assertions) cevaba "
+        "uygular ve sonucu test geçmişine kaydeder. status: passed (tüm kurallar geçti), "
+        "failed (en az bir kural kaldı) veya error (cevap alınamadı)."
+    ),
+    responses={**NOT_FOUND, **FORBIDDEN, 409: {"description": "Production onayı gerekli"}},
+)
+def run_api(
+    api_id: int,
+    user: Editor,
+    db: DbSession,
+    transport: HttpTransport,
+    options: SendOptions | None = None,
+) -> TestRunRead:
+    api = _get_or_404(db, api_id)
+    context = _prepare(db, api, options or SendOptions())
+    result = _send(api, context, transport)
+    results = evaluate(api.assertions or [], result, context.variables)
+    run = save_run(db, api, result, results, user)
+    return run_to_read(run)

@@ -66,6 +66,9 @@ class ApiDefinition(TimestampMixin, Base):
     )
     auth_config_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Test kuralları (ATOP-31): [{"type": "status_code", "operator": "equals", ...}, ...]
+    assertions: Mapped[list] = mapped_column(JSON, default=list)
+
     created_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

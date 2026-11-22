@@ -12,6 +12,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.api_definition import AuthType, BodyType, HttpMethod
+from app.schemas.assertion import Assertion
 
 MASK = "********"
 SECRET_FIELDS = ("token", "password", "key_value")
@@ -100,6 +101,7 @@ class ApiDefinitionCreate(BaseModel):
     body_type: BodyType = BodyType.NONE
     body: str | None = Field(default=None, max_length=1_000_000)
     auth: AuthConfig = Field(default_factory=AuthConfig)
+    assertions: list[Assertion] = Field(default_factory=list, max_length=100)
 
     @field_validator("url")
     @classmethod
@@ -124,6 +126,7 @@ class ApiDefinitionUpdate(BaseModel):
     body_type: BodyType | None = None
     body: str | None = Field(default=None, max_length=1_000_000)
     auth: AuthConfig | None = None
+    assertions: list[Assertion] | None = Field(default=None, max_length=100)
 
     @field_validator("url")
     @classmethod
@@ -144,6 +147,7 @@ class ApiDefinitionRead(BaseModel):
     body_type: BodyType
     body: str | None
     auth: AuthConfig
+    assertions: list[Assertion]
     created_by_id: int | None
     created_at: datetime
     updated_at: datetime

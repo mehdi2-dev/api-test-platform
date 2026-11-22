@@ -84,6 +84,21 @@ Böylece aynı API tanımı kod değiştirmeden her ortamda çalışır.
 - **Production** işaretli ortamda POST / PUT / PATCH / DELETE istekleri açık onay olmadan
   gönderilmez (API'de `confirm_production: true`).
 
+### Test kuralları (kod yazmadan test)
+
+Bir API'nin **Testler** sekmesinden kurallar eklenir; **Kaydet ve Çalıştır** isteği gönderir,
+kuralları cevaba uygular ve sonucu kaydeder (**Geçti / Kaldı / Hata**).
+
+| Tip | Hedef | Operatörler | Örnek |
+|---|---|---|---|
+| Durum kodu | — | eşittir, eşit değildir, aralıkta, listede | `2xx`, `200,201` |
+| Yanıt süresi | — | şundan kısa (ms) | `500` |
+| JSON alanı | JSONPath | var, yok, eşittir, içerir, regex, tipi, büyüktür, küçüktür | `$.data.user.id` |
+| Header | header adı | var, yok, eşittir, içerir | `Content-Type` içerir `json` |
+
+JSONPath örnekleri: `$.status`, `$.items[0].id`, `$.items[-1]`, `$['alan adı']`.
+Beklenen değerde de `{{değişken}}` kullanılabilir. Çalıştırma kayıtları: `GET /api/runs`.
+
 ## Docker'sız geliştirme (VS Code'da)
 
 PostgreSQL ve Redis'i yine Docker'dan çalıştırmak en kolayı:
