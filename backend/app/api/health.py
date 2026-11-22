@@ -44,7 +44,27 @@ def check_redis() -> CheckStatus:
         return "error"
 
 
-@router.get("/health", response_model=HealthResponse, summary="Sağlık kontrolü")
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Sağlık kontrolü",
+    responses={
+        503: {
+            "model": HealthResponse,
+            "description": "Veritabanı veya Redis'e ulaşılamıyor",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "app": "API Test Otomasyon Platformu",
+                        "environment": "development",
+                        "checks": {"database": "ok", "redis": "error"},
+                    },
+                },
+            },
+        },
+    },
+)
 def health(response: Response) -> HealthResponse:
     checks = {"database": check_database(), "redis": check_redis()}
     overall: CheckStatus = "ok" if all(v == "ok" for v in checks.values()) else "error"

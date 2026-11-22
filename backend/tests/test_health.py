@@ -51,3 +51,9 @@ def test_celery_add_task_runs_eagerly() -> None:
         assert add.delay(2, 3).get() == 5
     finally:
         celery_app.conf.task_always_eager = False
+
+
+def test_health_documents_503_in_openapi(client: TestClient) -> None:
+    spec = client.get("/openapi.json").json()
+    responses = spec["paths"]["/api/health"]["get"]["responses"]
+    assert "503" in responses
