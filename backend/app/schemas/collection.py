@@ -143,7 +143,13 @@ class CollectionRunSummary(BaseModel):
     collection_id: int | None
     collection_name: str
     environment_name: str | None
-    status: RunStatus
+    state: Literal["queued", "running", "completed"] = Field(
+        description="queued: kuyrukta, running: çalışıyor, completed: bitti (ATOP-44)"
+    )
+    trigger: Literal["manual", "schedule"] = "manual"
+    schedule_id: int | None = None
+    status: RunStatus | None = Field(description="Sonuç; bitene kadar boş")
+    error: str | None = Field(default=None, description="Çalıştırma başlayamadıysa nedeni")
     total_steps: int
     passed_steps: int
     failed_steps: int

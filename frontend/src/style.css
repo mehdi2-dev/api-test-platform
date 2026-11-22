@@ -281,3 +281,12 @@ fieldset:disabled input, fieldset:disabled textarea { background: #f9fafb; }
 .step-result-body { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
 .step-result--failed, .step-result--error { border-color: #fecaca !important; }
 .run--skipped { background: #e5e7eb; color: #374151; }
+
+/* --- Canlı izleme ve zamanlamalar --- */
+.run--queued { background: #e5e7eb; color: #374151; }
+.run--running { background: #dbeafe; color: #1e40af; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.55; } }
+.progress { height: 6px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
+.progress-bar { height: 100%; background: var(--primary); transition: width 0.4s ease; }
+.cron-presets { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.preset--active { background: #dbeafe; color: #1e40af; }

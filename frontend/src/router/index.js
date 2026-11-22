@@ -62,6 +62,12 @@ const routes = [
     meta: { title: 'Koleksiyon' },
   },
   {
+    path: '/schedules',
+    name: 'schedules',
+    component: () => import('@/views/SchedulesView.vue'),
+    meta: { title: 'Zamanlamalar' },
+  },
+  {
     path: '/403',
     name: 'forbidden',
     component: () => import('@/views/ForbiddenView.vue'),

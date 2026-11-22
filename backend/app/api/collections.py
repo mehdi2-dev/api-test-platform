@@ -11,13 +11,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from app.api.apis import (
-    MUTATING_METHODS,
-    PRODUCTION_CONFIRMATION,
-    HttpTransport,
-)
+from app.api.apis import PRODUCTION_CONFIRMATION, HttpTransport
 from app.api.deps import CurrentUser, DbSession, require_roles
-from app.api.environments import get_environment_or_404, variable_values
+from app.api.environments import get_environment_or_404
 from app.core.crypto import decrypt_json, encrypt_json
 from app.models.api_definition import ApiDefinition, AuthType
 from app.models.collection import Collection, CollectionItem, CollectionRun
@@ -41,7 +37,16 @@ from app.schemas.collection import (
     StepResult,
 )
 from app.schemas.environment import SendOptions
-from app.services.collection_runner import RunContext, run_collection
+from app.services.collection_runner import (
+    ProductionConfirmationRequired,
+    RunContext,
+    RunState,
+    build_context,
+    finish_with_error,
+    new_run,
+    run_collection,
+)
+from app.services.scheduler import QUEUE_ERROR, Enqueue, celery_enqueue
 from app.services.test_runs import run_to_read
 from app.services.variables import find_variables
 
@@ -55,6 +60,14 @@ Editor = Annotated[User, Depends(require_roles(Role.ADMIN, Role.TESTER))]
 NOT_FOUND = {404: {"description": "Koleksiyon bulunamadı"}}
 FORBIDDEN = {403: {"description": "Sadece Admin ve Tester"}}
 CONFLICT = {409: {"description": "Bu adda koleksiyon var"}}
+
+
+def get_enqueuer() -> Enqueue:
+    """Testlerde Celery olmadan çalışan bir sürümle değiştirilir."""
+    return celery_enqueue
+
+
+Enqueuer = Annotated[Enqueue, Depends(get_enqueuer)]
 
 
 # --- Yardımcılar ---
@@ -120,13 +133,17 @@ def _set_items(db: DbSession, collection: Collection, items: list[CollectionItem
     ]
 
 
-def _run_summary_fields(run: CollectionRun) -> dict[str, Any]:
+def run_summary_fields(run: CollectionRun) -> dict[str, Any]:
     return {
         "id": run.id,
         "collection_id": run.collection_id,
         "collection_name": run.collection_name,
         "environment_name": run.environment_name,
+        "state": run.state,
+        "trigger": run.trigger,
+        "schedule_id": run.schedule_id,
         "status": run.status,
+        "error": run.error,
         "total_steps": run.total_steps,
         "passed_steps": run.passed_steps,
         "failed_steps": run.failed_steps,
@@ -140,7 +157,7 @@ def _run_summary_fields(run: CollectionRun) -> dict[str, Any]:
 def _run_read(db: DbSession, run: CollectionRun) -> CollectionRunRead:
     step_runs = db.scalars(select(ApiTestRun).where(ApiTestRun.collection_run_id == run.id))
     return CollectionRunRead(
-        **_run_summary_fields(run),
+        **run_summary_fields(run),
         steps=[StepResult.model_validate(step) for step in run.steps or []],
         step_runs={test_run.id: run_to_read(test_run) for test_run in step_runs},
     )
@@ -418,32 +435,21 @@ def export_collection(collection_id: int, _: CurrentUser, db: DbSession) -> Coll
 
 
 def _context(db: DbSession, collection: Collection, options: SendOptions) -> RunContext:
-    context = RunContext()
-    if options.environment_id is None:
-        return context
+    """Ortamı ve Production kuralını kontrol eder; sorun varsa HTTP hatası döner."""
+    if options.environment_id is not None:
+        get_environment_or_404(db, options.environment_id)
+    try:
+        return build_context(db, collection, options.environment_id, options.confirm_production)
+    except ProductionConfirmationRequired as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={"code": PRODUCTION_CONFIRMATION, "message": str(exc)},
+        ) from exc
 
-    environment = get_environment_or_404(db, options.environment_id)
-    context.environment_name = environment.name
-    context.variables, context.secrets = variable_values(environment)
 
-    if environment.is_production and not options.confirm_production:
-        risky = [
-            f"{item.api.method.value} {item.api.name}"
-            for item in collection.items
-            if item.enabled and item.api and item.api.method in MUTATING_METHODS
-        ]
-        if risky:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                detail={
-                    "code": PRODUCTION_CONFIRMATION,
-                    "message": (
-                        f"'{environment.name}' bir Production ortamı ve koleksiyonda veri "
-                        f"değiştirebilecek adımlar var: {', '.join(risky)}. Emin misiniz?"
-                    ),
-                },
-            )
-    return context
+def _require_steps(collection: Collection) -> None:
+    if not any(item.enabled for item in collection.items):
+        raise HTTPException(422, detail="Koleksiyonda çalıştırılacak etkin adım yok")
 
 
 @router.post(
@@ -464,11 +470,59 @@ def start_run(
     options: SendOptions | None = None,
 ) -> CollectionRunRead:
     collection = _get_or_404(db, collection_id)
-    if not any(item.enabled for item in collection.items):
-        raise HTTPException(422, detail="Koleksiyonda çalıştırılacak etkin adım yok")
+    _require_steps(collection)
     context = _context(db, collection, options or SendOptions())
-    collection_run = run_collection(db, collection, context, user, transport)
+    collection_run = run_collection(db, collection, context, user.id, transport)
     return _run_read(db, collection_run)
+
+
+@router.post(
+    "/{collection_id}/run-async",
+    response_model=CollectionRunSummary,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Koleksiyonu arka planda çalıştır (kuyruğa al)",
+    description=(
+        "Çalıştırmayı Celery kuyruğuna atar ve hemen döner (state=queued). Durumu "
+        "GET /collections/{id}/runs/{run_id} ile izleyin: queued -> running -> completed. "
+        "Her adım bittikçe steps listesi dolar."
+    ),
+    responses={
+        **NOT_FOUND,
+        **FORBIDDEN,
+        409: {"description": "Production onayı gerekli"},
+        503: {"description": "Kuyruğa eklenemedi"},
+    },
+)
+def start_async_run(
+    collection_id: int,
+    user: Editor,
+    db: DbSession,
+    enqueue: Enqueuer,
+    options: SendOptions | None = None,
+) -> CollectionRunSummary:
+    options = options or SendOptions()
+    collection = _get_or_404(db, collection_id)
+    _require_steps(collection)
+    context = _context(db, collection, options)  # ortam ve Production kontrolü şimdi
+
+    collection_run = new_run(
+        collection,
+        RunState.QUEUED,
+        user_id=user.id,
+        environment_name=context.environment_name,
+    )
+    db.add(collection_run)
+    db.commit()  # worker kaydı bulabilsin diye kuyruğa atmadan önce kaydet
+    db.refresh(collection_run)
+
+    try:
+        enqueue(collection_run.id, options.environment_id, options.confirm_production)
+    except Exception as exc:
+        finish_with_error(db, collection_run, QUEUE_ERROR)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=QUEUE_ERROR) from exc
+
+    db.refresh(collection_run)
+    return CollectionRunSummary(**run_summary_fields(collection_run))
 
 
 @router.get(
@@ -490,7 +544,7 @@ def list_collection_runs(
         .order_by(CollectionRun.created_at.desc(), CollectionRun.id.desc())
         .limit(limit)
     )
-    return [CollectionRunSummary(**_run_summary_fields(run)) for run in db.scalars(query)]
+    return [CollectionRunSummary(**run_summary_fields(run)) for run in db.scalars(query)]
 
 
 @router.get(

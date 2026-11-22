@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # Test edilen API'lere giden isteklerin zaman aşımı (saniye)
     request_timeout_seconds: float = 30.0
 
+    # Zamanlanmış çalıştırmaların (cron) yorumlandığı saat dilimi
+    timezone: str = "Europe/Istanbul"
+
     # Veritabanında hiç kullanıcı yoksa açılışta oluşturulan ilk admin
     first_admin_email: str = "admin@apitest.com"
     first_admin_password: str = "Admin12345"

@@ -58,6 +58,7 @@ function logout() {
         >
           Koleksiyonlar
         </RouterLink>
+        <RouterLink to="/schedules" data-testid="nav-schedules">Zamanlamalar</RouterLink>
         <span class="nav-soon" title="ATOP-46">Test Geçmişi</span>
       </nav>
 

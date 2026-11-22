@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import api from '@/api/client'
 import { errorCode, errorMessage } from '@/api/errors'
@@ -13,6 +13,15 @@ const envStore = useEnvironmentStore()
 const canEdit = computed(() => auth.hasRole('admin', 'tester'))
 
 const RUN_LABELS = { passed: 'Geçti', failed: 'Kaldı', error: 'Hata', skipped: 'Atlandı' }
+const STATE_LABELS = { queued: 'Kuyrukta', running: 'Çalışıyor' }
+
+// Çalıştırmanın rozeti: bitmediyse durumu (Kuyrukta/Çalışıyor), bittiyse sonucu
+function runLabel(run) {
+  return run.state === 'completed' ? RUN_LABELS[run.status] : STATE_LABELS[run.state]
+}
+function runClass(run) {
+  return run.state === 'completed' ? `run--${run.status}` : `run--${run.state}`
+}
 const SOURCES = [
   { value: 'json_path', label: 'JSON alanı' },
   { value: 'header', label: 'Header' },
@@ -32,6 +41,14 @@ const result = ref(null)
 const runs = ref([])
 const openStep = ref(null) // sonuçta detayı açık olan adım
 let loadedId = null
+// Canlı izleme zamanlayıcısı. load() sayfa açılır açılmaz çağrıldığı için burada,
+// load'dan ÖNCE tanımlanmalı (yoksa "Cannot access before initialization" hatası)
+let pollTimer = null
+
+function stopPolling() {
+  if (pollTimer) clearTimeout(pollTimer)
+  pollTimer = null
+}
 
 const isNew = computed(() => !route.params.id)
 
@@ -75,6 +92,8 @@ async function loadRuns() {
 async function load() {
   const id = Number(route.params.id)
   if (!isNew.value && id === loadedId) return
+  stopPolling()
+  running.value = false
   error.value = ''
   notice.value = ''
   result.value = null
@@ -206,43 +225,73 @@ async function save() {
   }
 }
 
+// --- Arka planda çalıştırma ve canlı izleme (ATOP-41, ATOP-44) ---
+
+async function poll(runId) {
+  try {
+    const { data } = await api.get(`/collections/${loadedId}/runs/${runId}`)
+    result.value = data
+    if (data.state === 'completed') {
+      running.value = false
+      await loadRuns()
+      return
+    }
+  } catch (err) {
+    error.value = errorMessage(err, 'Durum alınamadı')
+    running.value = false
+    return
+  }
+  pollTimer = setTimeout(() => poll(runId), 1000) // saniyede bir sor
+}
+
+async function startRun(id, options) {
+  try {
+    return (await api.post(`/collections/${id}/run-async`, options)).data
+  } catch (err) {
+    // Production koruması: veri değiştiren adımlar için açık onay iste
+    if (errorCode(err) !== 'production_confirmation_required') throw err
+    if (!window.confirm(errorMessage(err))) return null
+    return (await api.post(`/collections/${id}/run-async`, { ...options, confirm_production: true }))
+      .data
+  }
+}
+
 async function run() {
   const saved = await save()
   if (!saved) return
   notice.value = ''
-  running.value = true
+  stopPolling()
   openStep.value = null
-  const options = { environment_id: envStore.activeId }
+  running.value = true
   try {
-    try {
-      const { data } = await api.post(`/collections/${saved.id}/run`, options)
-      result.value = data
-    } catch (err) {
-      if (errorCode(err) !== 'production_confirmation_required') throw err
-      if (!window.confirm(errorMessage(err))) {
-        notice.value = 'Koleksiyon çalıştırılmadı'
-        return
-      }
-      const { data } = await api.post(`/collections/${saved.id}/run`, {
-        ...options,
-        confirm_production: true,
-      })
-      result.value = data
+    const queued = await startRun(saved.id, { environment_id: envStore.activeId })
+    if (!queued) {
+      notice.value = 'Koleksiyon çalıştırılmadı'
+      running.value = false
+      return
     }
+    result.value = { ...queued, steps: [], step_runs: {} }
     await loadRuns()
+    poll(queued.id)
   } catch (err) {
     error.value = errorMessage(err, 'Koleksiyon çalıştırılamadı')
-  } finally {
     running.value = false
   }
 }
 
+onBeforeUnmount(stopPolling)
+
 async function showRun(summary) {
   error.value = ''
   openStep.value = null
+  stopPolling()
   try {
     const { data } = await api.get(`/collections/${loadedId}/runs/${summary.id}`)
     result.value = data
+    if (data.state !== 'completed') {
+      running.value = true
+      poll(data.id)
+    }
   } catch (err) {
     error.value = errorMessage(err, 'Kayıt açılamadı')
   }
@@ -453,14 +502,30 @@ const usableApis = computed(() => allApis.value)
 
     <div v-if="result" class="card result-card" data-testid="collection-result">
       <div class="result-summary">
-        <span class="run-badge" :class="`run--${result.status}`">{{ RUN_LABELS[result.status] }}</span>
-        <span>
-          <b>{{ result.passed_steps }}/{{ result.total_steps }}</b> adım geçti
-          <span v-if="result.skipped_steps" class="muted">· {{ result.skipped_steps }} atlandı</span>
+        <span class="run-badge" :class="runClass(result)" data-testid="run-state">
+          {{ runLabel(result) }}
         </span>
-        <span><b>{{ result.elapsed_ms }}</b> ms</span>
+        <template v-if="result.state === 'completed'">
+          <span>
+            <b>{{ result.passed_steps }}/{{ result.total_steps }}</b> adım geçti
+            <span v-if="result.skipped_steps" class="muted">· {{ result.skipped_steps }} atlandı</span>
+          </span>
+          <span><b>{{ result.elapsed_ms }}</b> ms</span>
+        </template>
+        <span v-else class="muted">
+          {{ result.steps.length }}/{{ result.total_steps }} adım tamamlandı
+        </span>
+        <span v-if="result.trigger === 'schedule'" class="muted">· zamanlanmış</span>
         <span v-if="result.environment_name" class="muted">Ortam: {{ result.environment_name }}</span>
       </div>
+
+      <div v-if="result.state !== 'completed'" class="progress" data-testid="run-progress">
+        <div
+          class="progress-bar"
+          :style="{ width: `${result.total_steps ? (result.steps.length / result.total_steps) * 100 : 0}%` }"
+        ></div>
+      </div>
+      <p v-if="result.error" class="form-error">{{ result.error }}</p>
 
       <ul class="step-results">
         <li v-for="step in result.steps" :key="step.position" :class="`step-result--${step.status}`">
@@ -531,9 +596,12 @@ const usableApis = computed(() => allApis.value)
             @click="showRun(item)"
           >
             <td>
-              <span class="run-badge" :class="`run--${item.status}`">{{ RUN_LABELS[item.status] }}</span>
+              <span class="run-badge" :class="runClass(item)">{{ runLabel(item) }}</span>
             </td>
-            <td>{{ item.passed_steps }}/{{ item.total_steps }} adım</td>
+            <td>
+              {{ item.passed_steps }}/{{ item.total_steps }} adım
+              <span v-if="item.trigger === 'schedule'" class="muted small-text">· zamanlanmış</span>
+            </td>
             <td>{{ item.elapsed_ms }} ms</td>
             <td class="muted">{{ item.environment_name ?? 'ortamsız' }}</td>
             <td class="muted">{{ formatTime(item.created_at) }}</td>

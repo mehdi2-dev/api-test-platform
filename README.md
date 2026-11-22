@@ -111,6 +111,22 @@ sıralanır). Bir adımın cevabından değer alınıp sonraki adımlarda kullan
 koleksiyonu JSON dosyasına yazar (gizli değerler yazılmaz, `{{token}}` gibi yer tutucu
 konur); **İçe aktar** bu dosyadan API tanımlarını ve koleksiyonu yeniden oluşturur.
 
+### Arka planda çalıştırma ve zamanlama
+
+Koleksiyonlar **Celery worker** üzerinde arka planda çalışır; ekranda durum canlı izlenir
+(**Kuyrukta → Çalışıyor → Geçti/Kaldı**, adım adım ilerleme çubuğu).
+
+**Zamanlamalar** sayfasından koleksiyonlar cron ifadesiyle planlanır (Europe/Istanbul saati):
+
+| İfade | Anlamı |
+|---|---|
+| `*/5 * * * *` | 5 dakikada bir |
+| `0 9 * * 1-5` | Hafta içi her gün 09:00 |
+| `0 3 * * 1` | Her pazartesi 03:00 |
+
+**Celery Beat** her dakika zamanı gelen planları kuyruğa atar. Worker ve beat loglarını
+izlemek için: `docker compose logs -f worker beat`.
+
 ## Docker'sız geliştirme (VS Code'da)
 
 PostgreSQL ve Redis'i yine Docker'dan çalıştırmak en kolayı:

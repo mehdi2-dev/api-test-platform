@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 
 from app.models.api_definition import ApiDefinition
 from app.models.test_run import ApiTestRun, RunStatus
-from app.models.user import User
 from app.schemas.api_definition import SendResult
 from app.schemas.assertion import AssertionResult, TestRunRead, TestRunSummary
 
@@ -23,7 +22,7 @@ def save_run(
     api: ApiDefinition,
     result: SendResult,
     results: list[AssertionResult],
-    user: User | None,
+    user_id: int | None,
     collection_run_id: int | None = None,
 ) -> ApiTestRun:
     response = None
@@ -41,7 +40,7 @@ def save_run(
         api_name=api.name,
         method=api.method.value,
         environment_name=result.environment,
-        triggered_by_id=user.id if user else None,
+        triggered_by_id=user_id,
         collection_run_id=collection_run_id,
         status=run_status(result, results),
         status_code=result.status_code,

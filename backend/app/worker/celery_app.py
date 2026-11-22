@@ -6,6 +6,7 @@ Beat:    celery -A app.worker.celery_app beat --loglevel=info
 """
 
 from celery import Celery
+from celery.schedules import crontab
 
 from app.core.config import settings
 from app.core.logging import setup_logging
@@ -30,11 +31,19 @@ celery_app.conf.update(
     # Kuyruklar: test çalıştırmaları ayrı kuyrukta, ileride ayrı worker'a verilebilir
     task_routes={"app.worker.tasks.run_*": {"queue": "test_runs"}},
     task_default_queue="default",
-    # Zamanlanmış görevler (ATOP-42'de veritabanından okunacak şekilde genişletilecek)
+    # Worker çökerse görev kaybolmasın: bitince onayla
+    task_acks_late=True,
+    worker_prefetch_multiplier=1,
+    # Beat'in sabit görevleri. Kullanıcı planları veritabanında (schedules tablosu);
+    # dispatch_due_schedules her dakika zamanı gelenleri kuyruğa atar (ATOP-42).
     beat_schedule={
-        "heartbeat-every-5-minutes": {
+        "dispatch-due-schedules-every-minute": {
+            "task": "app.worker.tasks.dispatch_due_schedules",
+            "schedule": crontab(),  # her dakikanın başında
+        },
+        "heartbeat-every-hour": {
             "task": "app.worker.tasks.heartbeat",
-            "schedule": 300.0,
+            "schedule": 3600.0,
         },
     },
 )

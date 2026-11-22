@@ -319,5 +319,5 @@ def run_api(
     context = _prepare(db, api, options or SendOptions())
     result = _send(api, context, transport)
     results = evaluate(api.assertions or [], result, context.variables)
-    run = save_run(db, api, result, results, user)
+    run = save_run(db, api, result, results, user.id)
     return run_to_read(run)
