@@ -4,10 +4,14 @@ import { RouterLink, useRouter } from 'vue-router'
 import api from '@/api/client'
 import { errorMessage } from '@/api/errors'
 import { useAuthStore } from '@/stores/auth'
+import { useEnvironmentStore } from '@/stores/environment'
 
 const router = useRouter()
 const auth = useAuthStore()
+const environments = useEnvironmentStore()
 const canEdit = computed(() => auth.hasRole('admin', 'tester'))
+const isAdmin = computed(() => auth.hasRole('admin'))
+const seeding = ref(false)
 
 const RUN_LABELS = { passed: 'Geçti', failed: 'Kaldı', error: 'Hata' }
 
@@ -39,6 +43,29 @@ async function remove(item) {
     await load()
   } catch (err) {
     error.value = errorMessage(err, 'Silinemedi')
+  }
+}
+
+// --- Örnek senaryolar (ATOP-52..55) ---
+
+async function seedDemo() {
+  error.value = ''
+  notice.value = ''
+  seeding.value = true
+  try {
+    const { data } = await api.post('/collections/seed-demo')
+    const created = data.collections.filter((c) => c.created).length
+    notice.value = created
+      ? `${created} örnek koleksiyon ve "Demo" ortamı yüklendi. Aktif ortam "Demo" yapıldı; bir örneği açıp çalıştırın.`
+      : 'Örnekler zaten yüklü.'
+    // Sol menüdeki ortam listesi yeni "Demo" ortamını görsün ve onu seçili yapsın
+    await environments.load()
+    environments.setActive(data.environment_id)
+    await load()
+  } catch (err) {
+    error.value = errorMessage(err, 'Örnekler yüklenemedi')
+  } finally {
+    seeding.value = false
   }
 }
 
@@ -87,6 +114,16 @@ onMounted(load)
     <header class="page-header">
       <h1>Koleksiyonlar</h1>
       <div v-if="canEdit" class="header-actions">
+        <button
+          v-if="isAdmin"
+          class="btn-secondary"
+          :disabled="seeding"
+          data-testid="seed-demo"
+          title="Demo CRM servisi için örnek koleksiyonları ve 'Demo' ortamını oluşturur"
+          @click="seedDemo"
+        >
+          {{ seeding ? 'Yükleniyor…' : 'Örnekleri yükle' }}
+        </button>
         <button class="btn-secondary" data-testid="collection-import" @click="chooseFile">
           İçe aktar
         </button>

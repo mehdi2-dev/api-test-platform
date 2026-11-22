@@ -12,6 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.rate_limit import login_limiter
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.main import app
@@ -19,6 +20,14 @@ from app.models import Base
 from app.models.user import Role, User
 
 TEST_PASSWORD = "Sifre12345"
+
+
+@pytest.fixture(autouse=True)
+def _reset_login_limiter() -> Iterator[None]:
+    """Her test giriş denemesi sayacı sıfırken başlasın."""
+    login_limiter.reset()
+    yield
+    login_limiter.reset()
 
 
 @pytest.fixture

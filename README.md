@@ -1,195 +1,100 @@
 # API Test Otomasyon Platformu
 
 API servislerinin doğruluğunu, çalışırlığını ve performansını otomatik test eden,
-kod yazmadan test senaryosu tanımlanabilen web uygulaması.
+**kod yazmadan** test senaryosu tanımlanabilen web uygulaması.
+
+[![CI](https://github.com/mehdi2-dev/api-test-platform/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/mehdi2-dev/api-test-platform/actions/workflows/ci.yml)
+
+| Doküman | İçerik |
+|---|---|
+| [docs/KURULUM.md](docs/KURULUM.md) | Kurulum, ortam değişkenleri, sorun giderme, prod kontrol listesi |
+| [docs/KULLANIM_KILAVUZU.md](docs/KULLANIM_KILAVUZU.md) | Kod yazmadan test ekleme, adım adım |
+| [docs/KABUL_TESTI.md](docs/KABUL_TESTI.md) | Teslim kriterleri kontrol listesi |
+| [backend/examples/](backend/examples/) | Örnek koleksiyonlar (içe aktarılabilir JSON) |
+
+## Neler yapabilir?
+
+- **API yönetimi:** URL, metod, header, query, body (JSON doğrulamalı) ve kimlik doğrulama
+  (Bearer, Basic, API Key). Token ve şifreler veritabanında **şifreli**, ekranda **maskeli**.
+- **Test motoru:** durum kodu, yanıt süresi, JSON alanı (JSONPath) ve header kuralları;
+  sonuç **Geçti / Kaldı / Hata** olarak kaydedilir.
+- **Ortamlar:** Dev / Stage / Prod ve `{{değişken}}` desteği. Production'da veri değiştiren
+  istekler açık onay ister.
+- **Koleksiyonlar:** API'leri sıralı senaryoda birleştirme, cevaptan değişken alıp sonraki
+  adıma aktarma (ör. giriş token'ı), sürükle-bırak sıralama, JSON içe/dışa aktarma.
+- **Çalıştırma:** elle veya **cron** ile zamanlanmış; Celery üzerinde arka planda, canlı izleme.
+- **Raporlama:** dashboard, filtrelenebilir test geçmişi, hata raporu ve önceki başarılı
+  çalıştırmayla karşılaştırma.
+- **Bildirimler:** başarısız testte Slack, Teams, webhook veya e-posta.
+- **Roller:** Admin, Tester, Viewer.
 
 | Katman | Teknoloji |
 |---|---|
-| Backend | Python 3.12, FastAPI, SQLAlchemy 2, Alembic |
+| Backend | Python 3.12, FastAPI, SQLAlchemy 2, Alembic, httpx |
 | Kuyruk | Redis, Celery (worker + beat) |
 | Veritabanı | PostgreSQL 16 |
 | Frontend | Vue 3, Vite, Pinia, Vue Router |
-| Çalıştırma | Docker Compose |
+| Çalıştırma | Docker Compose, GitHub Actions (CI) |
+
+## Hızlı başlangıç
+
+Gerekenler: **Docker Desktop** ve **Git**. Ayrıntılar: [docs/KURULUM.md](docs/KURULUM.md)
+
+```bash
+git clone https://github.com/mehdi2-dev/api-test-platform.git
+cd api-test-platform
+cp .env.example .env          # Windows PowerShell: copy .env.example .env
+docker compose up -d --build
+```
+
+| Adres | Ne var |
+|---|---|
+| http://localhost:5173 | Uygulama |
+| http://localhost:8000/docs | Platform API dokümantasyonu (Swagger) |
+| http://localhost:8001/docs | Demo CRM servisi (örnek senaryoların hedefi) |
+
+İlk giriş: **admin@apitest.com / Admin12345** (`.env` içinden değiştirilebilir).
+
+**Örnek senaryoları denemek için:** Koleksiyonlar → **Örnekleri yükle** → sol menüden aktif
+ortamı **Demo** yap → bir örnek koleksiyonu açıp **Kaydet ve Çalıştır**.
 
 ## Klasör yapısı
 
 ```
 api-test-platform/
-├── backend/            FastAPI uygulaması
+├── backend/
 │   ├── app/
-│   │   ├── api/        HTTP endpoint'leri (router'lar)
-│   │   ├── core/       ayarlar (config) ve logging
-│   │   ├── db/         veritabanı bağlantısı ve Base model
-│   │   ├── models/     SQLAlchemy modelleri
-│   │   └── worker/     Celery uygulaması ve görevleri
+│   │   ├── api/        HTTP endpoint'leri
+│   │   ├── core/       ayarlar, şifreleme, güvenlik, logging
+│   │   ├── db/         veritabanı bağlantısı
+│   │   ├── demo/       demo CRM servisi (örnek senaryolar için)
+│   │   ├── models/     veritabanı tabloları
+│   │   ├── schemas/    istek/cevap şemaları ve doğrulama
+│   │   ├── services/   iş mantığı: istek gönderme, test motoru, cron, bildirim...
+│   │   ├── worker/     Celery görevleri
+│   │   └── cli.py      yönetim komutları
 │   ├── alembic/        veritabanı migration'ları
+│   ├── examples/       örnek koleksiyonlar (JSON)
 │   └── tests/          pytest testleri
-├── frontend/           Vue 3 uygulaması
+├── frontend/src/       Vue 3 uygulaması (views, components, stores)
+├── docs/               kurulum, kullanım kılavuzu, kabul testi
 ├── docker-compose.yml  tüm servisler
-└── .github/workflows/  CI
+└── .github/workflows/  CI (lint, test, build)
 ```
-
-## Hızlı başlangıç (Docker ile — önerilen)
-
-Gerekenler: **Docker Desktop** ve **Git**.
-
-```bash
-cp .env.example .env          # Windows PowerShell: copy .env.example .env
-docker compose up --build
-```
-
-| Adres | Ne var |
-|---|---|
-| http://localhost:5173 | Frontend |
-| http://localhost:8000/docs | API dokümantasyonu (Swagger) |
-| http://localhost:8000/api/health | Sağlık kontrolü (DB + Redis) |
-
-Durdurmak için `Ctrl+C`, ardından `docker compose down`.
-Arka planda çalıştırmak için: `docker compose up -d`.
-
-### İlk giriş
-
-Veritabanında hiç kullanıcı yoksa açılışta bir admin oluşturulur
-(bilgileri `.env` içindeki `FIRST_ADMIN_EMAIL` / `FIRST_ADMIN_PASSWORD`):
-
-| E-posta | Şifre | Rol |
-|---|---|---|
-| admin@apitest.com | Admin12345 | Admin |
-
-Swagger'da denemek için: `POST /api/auth/login` → dönen `access_token`'ı kopyala →
-sağ üstteki **Authorize** düğmesine yapıştır. Roller: **admin** (her şey + kullanıcı
-yönetimi), **tester** (test oluşturma ve çalıştırma), **viewer** (sadece görüntüleme).
-Veritabanını da silmek için: `docker compose down -v`.
-
-### API tanımlama
-
-Sol menüden **API'ler → + Yeni API**: metod, URL, query parametreleri, header'lar, body
-(JSON doğrulamalı) ve kimlik doğrulama (Bearer, Basic, API Key) girilir.
-**Kaydet ve Gönder** isteği hemen çalıştırır; durum kodu, süre (ms), cevap ve gönderilen
-istek görünür.
-
-- Token, şifre ve API anahtarı veritabanında **şifreli** saklanır (`ENCRYPTION_KEY`) ve
-  ekranda / API cevaplarında `********` olarak **maskelenir**.
-- Docker içinden kendi API'mizi denemek için URL: `http://localhost:8000/api/health`
-  (konteynerin içinde `localhost` backend'in kendisidir).
-
-### Ortamlar ve değişkenler
-
-**Ortamlar** sayfasından Dev / Stage / Prod gibi ortamlar ve değişkenleri (`base_url`,
-`token`...) tanımlanır. API tanımlarında `{{base_url}}/users` ya da token alanında
-`{{token}}` yazılır; gönderirken sol menüde seçili ortamın değerleri yerine konur.
-Böylece aynı API tanımı kod değiştirmeden her ortamda çalışır.
-
-- **Gizli** işaretli değişkenler şifreli saklanır, ekranda ve sonuçlarda `********` görünür.
-- **Production** işaretli ortamda POST / PUT / PATCH / DELETE istekleri açık onay olmadan
-  gönderilmez (API'de `confirm_production: true`).
-
-### Test kuralları (kod yazmadan test)
-
-Bir API'nin **Testler** sekmesinden kurallar eklenir; **Kaydet ve Çalıştır** isteği gönderir,
-kuralları cevaba uygular ve sonucu kaydeder (**Geçti / Kaldı / Hata**).
-
-| Tip | Hedef | Operatörler | Örnek |
-|---|---|---|---|
-| Durum kodu | — | eşittir, eşit değildir, aralıkta, listede | `2xx`, `200,201` |
-| Yanıt süresi | — | şundan kısa (ms) | `500` |
-| JSON alanı | JSONPath | var, yok, eşittir, içerir, regex, tipi, büyüktür, küçüktür | `$.data.user.id` |
-| Header | header adı | var, yok, eşittir, içerir | `Content-Type` içerir `json` |
-
-JSONPath örnekleri: `$.status`, `$.items[0].id`, `$.items[-1]`, `$['alan adı']`.
-Beklenen değerde de `{{değişken}}` kullanılabilir. Çalıştırma kayıtları: `GET /api/runs`.
-
-### Koleksiyonlar (senaryolar)
-
-**Koleksiyonlar** sayfasında API'ler sıralı bir senaryoda birleştirilir (sürükle-bırak ile
-sıralanır). Bir adımın cevabından değer alınıp sonraki adımlarda kullanılabilir:
-
-1. `POST {{base_url}}/api/auth/login` → cevaptan **`$.access_token` → `token`** (gizli)
-2. `GET {{base_url}}/api/auth/me` → Bearer token: `{{token}}`
-
-"Bir adım geçemezse dur" seçeneği kapalıysa kalan adımlar yine çalışır. **Dışa aktar**
-koleksiyonu JSON dosyasına yazar (gizli değerler yazılmaz, `{{token}}` gibi yer tutucu
-konur); **İçe aktar** bu dosyadan API tanımlarını ve koleksiyonu yeniden oluşturur.
-
-### Arka planda çalıştırma ve zamanlama
-
-Koleksiyonlar **Celery worker** üzerinde arka planda çalışır; ekranda durum canlı izlenir
-(**Kuyrukta → Çalışıyor → Geçti/Kaldı**, adım adım ilerleme çubuğu).
-
-**Zamanlamalar** sayfasından koleksiyonlar cron ifadesiyle planlanır (Europe/Istanbul saati):
-
-| İfade | Anlamı |
-|---|---|
-| `*/5 * * * *` | 5 dakikada bir |
-| `0 9 * * 1-5` | Hafta içi her gün 09:00 |
-| `0 3 * * 1` | Her pazartesi 03:00 |
-
-**Celery Beat** her dakika zamanı gelen planları kuyruğa atar. Worker ve beat loglarını
-izlemek için: `docker compose logs -f worker beat`.
-
-### Raporlama ve bildirimler
-
-- **Genel Bakış (dashboard):** başarı oranı, ortalama yanıt süresi, günlük Geçti/Kaldı/Hata
-  grafiği, en çok kalan ve en yavaş API'ler, son çalıştırmalar.
-- **Test Geçmişi:** API adı, sonuç, ortam, kaynak (tek API / koleksiyon) ve tarihe göre filtre.
-  Bir kayda tıklayınca **hata raporu** açılır: kalan kurallar, istek/cevap, aynı API'nin son
-  başarılı çalıştırmasıyla karşılaştırma (cevap farkı satır satır) ve **Hata raporunu kopyala**
-  (Jira'ya yapıştırmaya hazır metin).
-- **Bildirimler (Admin):** Slack, Microsoft Teams, genel webhook veya e-posta. Koleksiyon
-  çalıştırması kalırsa (ya da "her zaman" seçiliyse her seferinde) mesaj gider. Denemek için
-  [webhook.site](https://webhook.site) adresi kullanılabilir. E-posta için `.env` içinde SMTP ayarları.
-
-## Docker'sız geliştirme (VS Code'da)
-
-PostgreSQL ve Redis'i yine Docker'dan çalıştırmak en kolayı:
-
-```bash
-docker compose up db redis
-```
-
-**Backend** (ayrı terminal):
-
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate         # macOS/Linux: source .venv/bin/activate
-pip install -r requirements-dev.txt
-alembic upgrade head
-uvicorn app.main:app --reload
-```
-
-**Celery worker** (ayrı terminal, venv aktifken):
-
-```bash
-cd backend
-celery -A app.worker.celery_app worker --loglevel=info --pool=solo   # Windows'ta --pool=solo gerekli
-```
-
-**Frontend** (ayrı terminal):
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-VS Code'da **Run and Debug** panelinde hazır "Backend: FastAPI" hata ayıklama ayarı var.
 
 ## Testler
 
 ```bash
-cd backend && pytest
-cd frontend && npm run build
+docker compose exec backend pytest -q     # backend (uçtan uca kabul testi dahil)
+cd frontend && npm run build              # frontend derleme kontrolü
 ```
+
+GitHub Actions her push'ta lint, testler, frontend derlemesi ve Docker imajlarını kontrol eder.
 
 ## Branch stratejisi
 
-- `main` — her zaman çalışır durumda, sadece PR ile güncellenir.
-- `develop` — günlük entegrasyon dalı.
-- Özellik dalları `develop`'tan açılır ve Jira anahtarıyla adlandırılır:
-  `feature/ATOP-12-fastapi-iskeleti`, `fix/ATOP-30-prod-koruma`.
-- Commit mesajı Jira anahtarıyla başlar: `ATOP-12 health endpoint eklendi`
-  (Jira, commit'i ilgili task'a bağlar).
-- PR açılmadan önce CI (lint + test + build) yeşil olmalı.
+- `main`: teslim edilebilir sürüm, sadece `develop`'tan birleştirme ile güncellenir.
+- `develop`: günlük entegrasyon dalı.
+- Commit mesajı Jira anahtarıyla başlar: `ATOP-12 health endpoint eklendi`.
 
 Ayrıntılar: [CONTRIBUTING.md](CONTRIBUTING.md)

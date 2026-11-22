@@ -14,6 +14,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 ROOT_DIR = Path(__file__).resolve().parents[3]
 
 
+DEFAULT_SECRETS = {
+    "gelistirme-icin-varsayilan-anahtar-prodda-degistirin",
+    "degistir-beni-uzun-ve-rastgele-bir-deger",
+}
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=(ROOT_DIR / ".env", ".env"),
@@ -41,12 +47,21 @@ class Settings(BaseSettings):
     # Boş bırakılırsa SECRET_KEY'den türetilir. Üretmek için:
     #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     encryption_key: str = ""
+    # Anahtar değiştirirken eski anahtar(lar), virgülle. Sadece çözmek için kullanılır.
+    encryption_key_previous: str = ""
+
+    # Giriş denemesi sınırı: aynı e-posta + IP için bu kadar hatalı denemeden sonra kilit
+    login_max_attempts: int = 5
+    login_lock_seconds: int = 15 * 60
 
     # Test edilen API'lere giden isteklerin zaman aşımı (saniye)
     request_timeout_seconds: float = 30.0
 
     # Zamanlanmış çalıştırmaların (cron) yorumlandığı saat dilimi
     timezone: str = "Europe/Istanbul"
+
+    # Demo CRM servisinin Docker içindeki adresi (örnek senaryoların "Demo" ortamı)
+    demo_base_url: str = "http://demo:8001"
 
     # Bildirim mesajlarındaki bağlantılar için arayüz adresi
     frontend_url: str = "http://localhost:5173"
@@ -69,6 +84,21 @@ class Settings(BaseSettings):
     @classmethod
     def upper_log_level(cls, value: str) -> str:
         return value.upper()
+
+    def security_warnings(self) -> list[str]:
+        """Prod'a çıkmadan düzeltilmesi gereken ayarlar (ATOP-49)."""
+        warnings = []
+        if self.secret_key in DEFAULT_SECRETS or len(self.secret_key) < 32:
+            warnings.append("SECRET_KEY varsayılan veya kısa (en az 32 karakter, rastgele olmalı)")
+        if not self.encryption_key:
+            warnings.append(
+                "ENCRYPTION_KEY boş: gizli veriler SECRET_KEY'den türetilen anahtarla şifreleniyor"
+            )
+        if self.first_admin_password == "Admin12345":
+            warnings.append("FIRST_ADMIN_PASSWORD varsayılan değerde")
+        if "*" in self.cors_origin_list:
+            warnings.append("CORS_ORIGINS '*' olmamalı")
+        return warnings
 
     @property
     def cors_origin_list(self) -> list[str]:

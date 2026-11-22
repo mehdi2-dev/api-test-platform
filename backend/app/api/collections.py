@@ -30,6 +30,7 @@ from app.schemas.collection import (
     CollectionRunSummary,
     CollectionSummary,
     CollectionUpdate,
+    DemoSeedResult,
     ExportedApi,
     ExportedStep,
     Extraction,
@@ -57,6 +58,7 @@ router = APIRouter(
 )
 
 Editor = Annotated[User, Depends(require_roles(Role.ADMIN, Role.TESTER))]
+AdminUser = Annotated[User, Depends(require_roles(Role.ADMIN))]
 NOT_FOUND = {404: {"description": "Koleksiyon bulunamadı"}}
 FORBIDDEN = {403: {"description": "Sadece Admin ve Tester"}}
 CONFLICT = {409: {"description": "Bu adda koleksiyon var"}}
@@ -226,6 +228,18 @@ def create_collection(body: CollectionCreate, user: Editor, db: DbSession) -> Co
     responses=FORBIDDEN,
 )
 def import_collection(body: CollectionExport, user: Editor, db: DbSession) -> ImportResult:
+    collection, created = create_from_export(db, body, user.id)
+    return ImportResult(
+        collection=_to_read(collection),
+        created_apis=created,
+        required_variables=body.required_variables,
+    )
+
+
+def create_from_export(
+    db: DbSession, body: CollectionExport, user_id: int | None
+) -> tuple[Collection, int]:
+    """Dışa aktarılmış JSON'dan API tanımlarını ve koleksiyonu oluşturur."""
     name = body.name
     suffix = 2
     while db.scalar(select(Collection.id).where(Collection.name == name)) is not None:
@@ -261,7 +275,7 @@ def import_collection(body: CollectionExport, user: Editor, db: DbSession) -> Im
             auth_config_encrypted=(
                 encrypt_json(fields) if definition.auth.type != AuthType.NONE else None
             ),
-            created_by_id=user.id,
+            created_by_id=user_id,
         )
         db.add(api)
         created.append(api)
@@ -271,7 +285,7 @@ def import_collection(body: CollectionExport, user: Editor, db: DbSession) -> Im
         name=name,
         description=body.description,
         stop_on_failure=body.stop_on_failure,
-        created_by_id=user.id,
+        created_by_id=user_id,
         items=[
             CollectionItem(
                 api_definition_id=created[step.api].id,
@@ -285,11 +299,23 @@ def import_collection(body: CollectionExport, user: Editor, db: DbSession) -> Im
     db.add(collection)
     db.commit()
     db.refresh(collection)
-    return ImportResult(
-        collection=_to_read(collection),
-        created_apis=len(created),
-        required_variables=body.required_variables,
-    )
+    return collection, len(created)
+
+
+@router.post(
+    "/seed-demo",
+    response_model=DemoSeedResult,
+    summary="Demo ortamını ve örnek koleksiyonları yükle (Admin)",
+    description=(
+        "Demo CRM servisi için 'Demo' ortamını (base_url, demo_user, demo_password) ve "
+        "backend/examples klasöründeki örnek koleksiyonları oluşturur. Zaten varsa atlar."
+    ),
+    responses={403: {"description": "Sadece Admin"}},
+)
+def seed_demo_endpoint(user: AdminUser, db: DbSession) -> DemoSeedResult:
+    from app.services.demo_seed import seed_demo
+
+    return seed_demo(db, user.id)
 
 
 @router.get(

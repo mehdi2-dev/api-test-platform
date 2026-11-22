@@ -216,3 +216,18 @@ class ImportResult(BaseModel):
     collection: CollectionRead
     created_apis: int
     required_variables: list[str]
+
+
+# --- Demo verileri (ATOP-52) ---
+
+
+class SeededCollection(BaseModel):
+    id: int
+    name: str
+    created: bool = Field(description="false: zaten vardı, dokunulmadı")
+
+
+class DemoSeedResult(BaseModel):
+    environment_id: int
+    environment_created: bool
+    collections: list[SeededCollection]

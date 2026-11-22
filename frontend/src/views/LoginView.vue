@@ -21,7 +21,8 @@ async function submit() {
     router.push(redirect)
   } catch (err) {
     const status = err.response?.status
-    if (status === 401) {
+    if (status === 401 || status === 429) {
+      // 429: çok fazla hatalı deneme, hesap bir süreliğine kilitlendi
       error.value = err.response.data?.detail ?? 'E-posta veya şifre hatalı'
     } else if (status === 422) {
       error.value = 'Lütfen geçerli bir e-posta adresi girin'

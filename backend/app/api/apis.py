@@ -5,6 +5,7 @@ Yetkiler:
 - Admin ve Tester: oluşturabilir, değiştirebilir, silebilir, gönderebilir
 """
 
+import json
 from dataclasses import dataclass, field
 from typing import Annotated, Any
 
@@ -32,6 +33,7 @@ from app.schemas.assertion import TestRunRead
 from app.schemas.environment import SendOptions
 from app.services import http_runner
 from app.services.assertions import evaluate
+from app.services.masking import mask_headers, mask_text
 from app.services.test_runs import run_to_read, save_run
 
 router = APIRouter(
@@ -294,7 +296,14 @@ def send_api(
 ) -> SendResult:
     api = _get_or_404(db, api_id)
     context = _prepare(db, api, options or SendOptions())
-    return _send(api, context, transport)
+    result = _send(api, context, transport)
+    # Ekrana dönen cevapta da gizli değerler ve hassas alanlar maskelenir (ATOP-50)
+    masked_body = mask_text(result.body, context.secrets)
+    if masked_body != result.body:
+        result.body = masked_body
+        result.body_json = json.loads(masked_body) if result.body_json is not None else None
+    result.headers = mask_headers(result.headers, context.secrets)
+    return result
 
 
 @router.post(
@@ -319,5 +328,5 @@ def run_api(
     context = _prepare(db, api, options or SendOptions())
     result = _send(api, context, transport)
     results = evaluate(api.assertions or [], result, context.variables)
-    run = save_run(db, api, result, results, user.id)
+    run = save_run(db, api, result, results, user.id, secret_values=context.secrets)
     return run_to_read(run)

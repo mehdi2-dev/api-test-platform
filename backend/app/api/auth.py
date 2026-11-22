@@ -1,11 +1,12 @@
 """Giriş, token yenileme ve "ben kimim" endpoint'leri."""
 
 import jwt
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
 from app.core.config import settings
+from app.core.rate_limit import login_limiter
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -33,15 +34,33 @@ def _token_pair(user: User) -> TokenPair:
     "/login",
     response_model=TokenPair,
     summary="Giriş yap, token al",
-    responses={401: {"description": INVALID_CREDENTIALS}},
+    responses={
+        401: {"description": INVALID_CREDENTIALS},
+        429: {"description": "Çok fazla hatalı deneme; bir süre sonra tekrar deneyin"},
+    },
 )
-def login(body: LoginRequest, db: DbSession) -> TokenPair:
-    user = db.scalar(select(User).where(User.email == body.email.lower()))
+def login(body: LoginRequest, request: Request, db: DbSession) -> TokenPair:
+    email = body.email.lower()
+    # Kaba kuvvet (brute-force) koruması: aynı e-posta + IP için hatalı deneme sınırı
+    client = request.client.host if request.client else "?"
+    key = f"{client}|{email}"
+    wait = login_limiter.retry_after(key)
+    if wait:
+        minutes = max(1, round(wait / 60))
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Çok fazla hatalı deneme. Yaklaşık {minutes} dakika sonra tekrar deneyin.",
+            headers={"Retry-After": str(wait)},
+        )
+
+    user = db.scalar(select(User).where(User.email == email))
     # Hangi bilginin yanlış olduğunu söylemiyoruz: e-posta tahmin edilmesin
     if user is None or not verify_password(body.password, user.hashed_password):
+        login_limiter.failed(key)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=INVALID_CREDENTIALS)
     if not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Hesabınız pasif durumda")
+    login_limiter.succeeded(key)
     return _token_pair(user)
 
 

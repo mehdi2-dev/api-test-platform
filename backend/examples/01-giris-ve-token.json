@@ -1,0 +1,143 @@
+{
+  "format": "api-test-platform/collection",
+  "version": 1,
+  "name": "Örnek 1 · Giriş ve token kontrolü",
+  "description": "Giriş yapılır, dönen token cevaptan alınır ve sonraki istekte Bearer olarak kullanılır.",
+  "stop_on_failure": true,
+  "apis": [
+    {
+      "name": "Demo · Giriş",
+      "description": "Kullanıcı adı ve şifreyle giriş yapar, token alır.",
+      "method": "POST",
+      "url": "{{base_url}}/auth/login",
+      "headers": [
+        {
+          "key": "Accept",
+          "value": "application/json",
+          "enabled": true
+        }
+      ],
+      "query_params": [],
+      "body_type": "json",
+      "body": "{\n  \"username\": \"{{demo_user}}\",\n  \"password\": \"{{demo_password}}\"\n}",
+      "auth": {
+        "type": "none"
+      },
+      "assertions": [
+        {
+          "type": "status_code",
+          "operator": "equals",
+          "expected": "200",
+          "enabled": true
+        },
+        {
+          "type": "response_time",
+          "operator": "less_than",
+          "expected": "2000",
+          "enabled": true
+        },
+        {
+          "type": "json_path",
+          "target": "$.access_token",
+          "operator": "exists",
+          "expected": null,
+          "enabled": true
+        },
+        {
+          "type": "json_path",
+          "target": "$.access_token",
+          "operator": "type_is",
+          "expected": "string",
+          "enabled": true
+        },
+        {
+          "type": "json_path",
+          "target": "$.expires_in",
+          "operator": "greater_than",
+          "expected": "0",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "name": "Demo · Şirketleri listele",
+      "description": "Token ile korunan şirket listesini getirir.",
+      "method": "GET",
+      "url": "{{base_url}}/companies",
+      "headers": [
+        {
+          "key": "Accept",
+          "value": "application/json",
+          "enabled": true
+        }
+      ],
+      "query_params": [],
+      "body_type": "none",
+      "body": null,
+      "auth": {
+        "type": "bearer",
+        "token": "{{token}}"
+      },
+      "assertions": [
+        {
+          "type": "status_code",
+          "operator": "equals",
+          "expected": "200",
+          "enabled": true
+        },
+        {
+          "type": "json_path",
+          "target": "$",
+          "operator": "type_is",
+          "expected": "array",
+          "enabled": true
+        },
+        {
+          "type": "json_path",
+          "target": "$[0].id",
+          "operator": "equals",
+          "expected": "1",
+          "enabled": true
+        },
+        {
+          "type": "json_path",
+          "target": "$[0].name",
+          "operator": "exists",
+          "expected": null,
+          "enabled": true
+        },
+        {
+          "type": "header",
+          "target": "Content-Type",
+          "operator": "contains",
+          "expected": "application/json",
+          "enabled": true
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "api": 0,
+      "enabled": true,
+      "extractions": [
+        {
+          "variable": "token",
+          "source": "json_path",
+          "path": "$.access_token",
+          "secret": true
+        }
+      ]
+    },
+    {
+      "api": 1,
+      "enabled": true,
+      "extractions": []
+    }
+  ],
+  "required_variables": [
+    "base_url",
+    "demo_password",
+    "demo_user"
+  ]
+}

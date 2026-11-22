@@ -1,4 +1,4 @@
-# Tüm platform tek komutla:  docker compose up --build
+# Tüm platform tek komutla:  docker compose up -d --build
 # Sadece altyapı (yerel geliştirme için):  docker compose up db redis
 
 x-backend-common: &backend-common
@@ -53,6 +53,16 @@ services:
     <<: *backend-common
     # Beat'in zamanlama dosyasını /tmp'ye yaz (kod klasörünü kirletmesin)
     command: celery -A app.worker.celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
+
+  # Örnek senaryoların koştuğu demo CRM servisi (giriş, lead, teklif). Docker içinden
+  # http://demo:8001, tarayıcıdan http://localhost:8001/docs
+  demo:
+    build: ./backend
+    command: uvicorn app.demo.main:app --host 0.0.0.0 --port 8001 --reload
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8001:8001"
 
   frontend:
     build: ./frontend

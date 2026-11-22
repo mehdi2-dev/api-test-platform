@@ -258,7 +258,7 @@ def run_collection(
                 )
             )
 
-        test_run = save_run(db, api, result, rule_results, user_id, collection_run.id)
+        test_run = save_run(db, api, result, rule_results, user_id, collection_run.id, secrets)
         status = run_status(result, rule_results).value
         steps.append(
             StepResult(

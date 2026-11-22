@@ -1,11 +1,16 @@
-"""Test çalıştırma sonuçlarını kaydetme ve okuma (ATOP-35)."""
+"""Test çalıştırma sonuçlarını kaydetme ve okuma (ATOP-35).
+
+Saklanan istek/cevap/kural sonuçlarında gizli değerler maskelenir (ATOP-50).
+"""
 
 from sqlalchemy.orm import Session
 
 from app.models.api_definition import ApiDefinition
 from app.models.test_run import ApiTestRun, RunStatus
-from app.schemas.api_definition import SendResult
+from app.schemas.api_definition import MASK, SendResult
 from app.schemas.assertion import AssertionResult, TestRunRead, TestRunSummary
+from app.services.masking import is_sensitive_path, mask_headers, mask_text
+from app.services.variables import mask_secrets
 
 # Veritabanında saklanan cevap gövdesinin üst sınırı (karakter)
 MAX_STORED_BODY = 50_000
@@ -17,6 +22,15 @@ def run_status(result: SendResult, results: list[AssertionResult]) -> RunStatus:
     return RunStatus.FAILED if any(not item.passed for item in results) else RunStatus.PASSED
 
 
+def _masked_result(item: AssertionResult, secrets: list[str]) -> dict:
+    data = item.model_dump(mode="json")
+    if data.get("actual") is not None:
+        data["actual"] = (
+            MASK if is_sensitive_path(item.target) else mask_secrets(data["actual"], secrets)
+        )
+    return data
+
+
 def save_run(
     db: Session,
     api: ApiDefinition,
@@ -24,13 +38,15 @@ def save_run(
     results: list[AssertionResult],
     user_id: int | None,
     collection_run_id: int | None = None,
+    secret_values: list[str] | None = None,
 ) -> ApiTestRun:
+    secrets = secret_values or []
     response = None
     if result.ok:
         response = {
             "status_code": result.status_code,
-            "headers": result.headers,
-            "body": result.body[:MAX_STORED_BODY],
+            "headers": mask_headers(result.headers, secrets),
+            "body": mask_text(result.body, secrets)[:MAX_STORED_BODY],
             "truncated": result.truncated or len(result.body) > MAX_STORED_BODY,
             "size_bytes": result.size_bytes,
         }
@@ -47,10 +63,10 @@ def save_run(
         elapsed_ms=result.elapsed_ms,
         passed_count=sum(1 for item in results if item.passed),
         failed_count=sum(1 for item in results if not item.passed),
-        error=result.error,
+        error=mask_secrets(result.error, secrets) if result.error else None,
         request=result.request.model_dump(),
         response=response,
-        assertion_results=[item.model_dump(mode="json") for item in results],
+        assertion_results=[_masked_result(item, secrets) for item in results],
     )
     db.add(run)
     db.commit()
