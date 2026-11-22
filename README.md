@@ -45,6 +45,20 @@ docker compose up --build
 | http://localhost:8000/api/health | Sağlık kontrolü (DB + Redis) |
 
 Durdurmak için `Ctrl+C`, ardından `docker compose down`.
+Arka planda çalıştırmak için: `docker compose up -d`.
+
+### İlk giriş
+
+Veritabanında hiç kullanıcı yoksa açılışta bir admin oluşturulur
+(bilgileri `.env` içindeki `FIRST_ADMIN_EMAIL` / `FIRST_ADMIN_PASSWORD`):
+
+| E-posta | Şifre | Rol |
+|---|---|---|
+| admin@apitest.com | Admin12345 | Admin |
+
+Swagger'da denemek için: `POST /api/auth/login` → dönen `access_token`'ı kopyala →
+sağ üstteki **Authorize** düğmesine yapıştır. Roller: **admin** (her şey + kullanıcı
+yönetimi), **tester** (test oluşturma ve çalıştırma), **viewer** (sadece görüntüleme).
 Veritabanını da silmek için: `docker compose down -v`.
 
 ## Docker'sız geliştirme (VS Code'da)

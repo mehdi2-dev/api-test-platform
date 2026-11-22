@@ -12,13 +12,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.logging import setup_logging
+from app.db.init_db import ensure_first_admin
+from app.db.session import SessionLocal
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
+def _bootstrap_data() -> None:
+    """İlk admin gibi başlangıç verilerini oluşturur.
+
+    Veritabanı hazır değilse hatayı loglar ama uygulamayı durdurmaz.
+    """
+    try:
+        with SessionLocal() as db:
+            ensure_first_admin(db)
+    except Exception:
+        logger.exception("Başlangıç verileri oluşturulamadı (migration'lar uygulandı mı?)")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    _bootstrap_data()
     logger.info("%s başlatıldı (ortam: %s)", settings.app_name, settings.environment)
     yield
     logger.info("%s kapatılıyor", settings.app_name)

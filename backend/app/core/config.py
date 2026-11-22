@@ -31,7 +31,16 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://apitest:apitest@localhost:5432/apitest"
     redis_url: str = "redis://localhost:6379/0"
 
-    secret_key: str = "degistir-beni"
+    # JWT imzalama anahtarı: prod'da mutlaka uzun ve rastgele bir değer verin
+    secret_key: str = "gelistirme-icin-varsayilan-anahtar-prodda-degistirin"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
+
+    # Veritabanında hiç kullanıcı yoksa açılışta oluşturulan ilk admin
+    first_admin_email: str = "admin@apitest.com"
+    first_admin_password: str = "Admin12345"
+    first_admin_name: str = "Sistem Yöneticisi"
 
     @field_validator("log_level")
     @classmethod
