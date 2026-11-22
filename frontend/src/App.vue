@@ -13,6 +13,7 @@ const blankLayout = computed(() => route.meta.layout === 'blank')
 // /apis/5 gibi alt sayfalarda da menüdeki "API'ler" seçili görünsün
 const inApis = computed(() => route.path.startsWith('/apis'))
 const inCollections = computed(() => route.path.startsWith('/collections'))
+const inHistory = computed(() => route.path.startsWith('/history'))
 
 // Giriş yapılınca ortam listesini yükle (sol menüdeki seçici için)
 watch(
@@ -59,7 +60,12 @@ function logout() {
           Koleksiyonlar
         </RouterLink>
         <RouterLink to="/schedules" data-testid="nav-schedules">Zamanlamalar</RouterLink>
-        <span class="nav-soon" title="ATOP-46">Test Geçmişi</span>
+        <RouterLink to="/history" data-testid="nav-history" :class="{ 'nav-active': inHistory }">
+          Test Geçmişi
+        </RouterLink>
+        <RouterLink v-if="auth.hasRole('admin', 'tester')" to="/notifications" data-testid="nav-notifications">
+          Bildirimler
+        </RouterLink>
       </nav>
 
       <div v-if="auth.user" class="env-picker">

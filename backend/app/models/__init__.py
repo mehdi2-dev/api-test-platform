@@ -15,5 +15,6 @@ from app.models.collection import (  # noqa: F401
     Schedule,
 )
 from app.models.environment import Environment, EnvironmentVariable  # noqa: F401
+from app.models.notification import NotificationChannel  # noqa: F401
 from app.models.test_run import ApiTestRun, RunStatus  # noqa: F401
 from app.models.user import Role, User  # noqa: F401

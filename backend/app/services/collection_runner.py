@@ -291,7 +291,21 @@ def run_collection(
 
     db.commit()
     db.refresh(collection_run)
+    _notify_safely(db, collection_run, transport)
     return collection_run
+
+
+def _notify_safely(
+    db: Session, collection_run: CollectionRun, transport: httpx.BaseTransport | None
+) -> None:
+    """Bildirim gönder (ATOP-48); bildirimdeki bir sorun çalıştırmanın sonucunu bozmasın."""
+    from app.services.notifications import notify_collection_run
+
+    try:
+        notify_collection_run(db, collection_run, transport)
+    except Exception:
+        logger.exception("Bildirimler gönderilemedi: çalıştırma %s", collection_run.id)
+        db.rollback()
 
 
 def execute_collection_run(
@@ -321,7 +335,9 @@ def execute_collection_run(
     try:
         context = build_context(db, collection, environment_id, confirm_production)
     except RunPreparationError as exc:
-        return finish_with_error(db, collection_run, str(exc))
+        collection_run = finish_with_error(db, collection_run, str(exc))
+        _notify_safely(db, collection_run, transport)
+        return collection_run
 
     try:
         return run_collection(
@@ -336,4 +352,6 @@ def execute_collection_run(
         logger.exception("Koleksiyon çalıştırması başarısız: %s", collection_run_id)
         db.rollback()
         collection_run = db.get(CollectionRun, collection_run_id)
-        return finish_with_error(db, collection_run, f"Beklenmeyen hata: {exc}")
+        collection_run = finish_with_error(db, collection_run, f"Beklenmeyen hata: {exc}")
+        _notify_safely(db, collection_run, transport)
+        return collection_run

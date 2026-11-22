@@ -48,6 +48,18 @@ class Settings(BaseSettings):
     # Zamanlanmış çalıştırmaların (cron) yorumlandığı saat dilimi
     timezone: str = "Europe/Istanbul"
 
+    # Bildirim mesajlarındaki bağlantılar için arayüz adresi
+    frontend_url: str = "http://localhost:5173"
+    notification_timeout_seconds: float = 10.0
+
+    # E-posta bildirimi (ATOP-48). smtp_host boşsa e-posta kanalları hata verir.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "api-test@localhost"
+    smtp_use_tls: bool = True
+
     # Veritabanında hiç kullanıcı yoksa açılışta oluşturulan ilk admin
     first_admin_email: str = "admin@apitest.com"
     first_admin_password: str = "Admin12345"

@@ -127,6 +127,18 @@ Koleksiyonlar **Celery worker** üzerinde arka planda çalışır; ekranda durum
 **Celery Beat** her dakika zamanı gelen planları kuyruğa atar. Worker ve beat loglarını
 izlemek için: `docker compose logs -f worker beat`.
 
+### Raporlama ve bildirimler
+
+- **Genel Bakış (dashboard):** başarı oranı, ortalama yanıt süresi, günlük Geçti/Kaldı/Hata
+  grafiği, en çok kalan ve en yavaş API'ler, son çalıştırmalar.
+- **Test Geçmişi:** API adı, sonuç, ortam, kaynak (tek API / koleksiyon) ve tarihe göre filtre.
+  Bir kayda tıklayınca **hata raporu** açılır: kalan kurallar, istek/cevap, aynı API'nin son
+  başarılı çalıştırmasıyla karşılaştırma (cevap farkı satır satır) ve **Hata raporunu kopyala**
+  (Jira'ya yapıştırmaya hazır metin).
+- **Bildirimler (Admin):** Slack, Microsoft Teams, genel webhook veya e-posta. Koleksiyon
+  çalıştırması kalırsa (ya da "her zaman" seçiliyse her seferinde) mesaj gider. Denemek için
+  [webhook.site](https://webhook.site) adresi kullanılabilir. E-posta için `.env` içinde SMTP ayarları.
+
 ## Docker'sız geliştirme (VS Code'da)
 
 PostgreSQL ve Redis'i yine Docker'dan çalıştırmak en kolayı:

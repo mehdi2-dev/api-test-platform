@@ -290,3 +290,43 @@ fieldset:disabled input, fieldset:disabled textarea { background: #f9fafb; }
 .progress-bar { height: 100%; background: var(--primary); transition: width 0.4s ease; }
 .cron-presets { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .preset--active { background: #dbeafe; color: #1e40af; }
+
+/* --- Dashboard --- */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi { display: flex; flex-direction: column; gap: 4px; }
+.kpi-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.kpi-value { font-size: 1.8rem; font-weight: 700; }
+.kpi--ok .kpi-value { color: var(--ok); }
+.kpi--warn .kpi-value { color: #b45309; }
+.kpi--bad .kpi-value { color: var(--error); }
+.chart-card { margin-bottom: 16px; }
+.chart { display: flex; align-items: flex-end; gap: 4px; height: 160px; }
+.chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; min-width: 0; }
+.chart-stack { flex: 1; width: 100%; max-width: 36px; display: flex; flex-direction: column; justify-content: flex-end; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+.bar { width: 100%; transition: height 0.3s ease; }
+.bar--passed { background: #22c55e; }
+.bar--failed { background: #ef4444; }
+.bar--error { background: #f59e0b; }
+.chart-label { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+.legend { display: flex; gap: 16px; margin-top: 8px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; }
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.card-header { display: flex; justify-content: space-between; align-items: baseline; }
+.clickable tr { cursor: pointer; }
+.clickable tr:hover td { background: #f9fafb; }
+.system-card { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* --- Test geçmişi ve hata raporu --- */
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; margin-bottom: 16px; }
+.filter-actions { display: flex; gap: 8px; }
+.pager { display: flex; gap: 12px; align-items: center; justify-content: center; margin-top: 12px; }
+.detail-summary { flex-wrap: wrap; margin-bottom: 16px; }
+.detail-link { margin-left: auto; }
+.report-block { white-space: pre-wrap; }
+.compare-table tr.changed td { background: #fef3c7; font-weight: 600; }
+.diff-block { padding: 8px 0; }
+.diff-line { display: block; padding: 0 12px; }
+.diff--added { background: rgba(34, 197, 94, 0.25); }
+.diff--removed { background: rgba(239, 68, 68, 0.3); text-decoration: line-through; text-decoration-color: rgba(255, 255, 255, 0.4); }
+.diff-legend { margin-left: 12px; }
+.diff-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 4px 0 8px; }

@@ -583,6 +583,9 @@ const enabledCount = (list) => list.filter((row) => row.enabled && row.key.trim(
         <span v-if="result.assertion_results.length" class="muted">
           {{ result.passed_count }}/{{ result.assertion_results.length }} kural geçti
         </span>
+        <RouterLink :to="`/history/${result.id}`" class="link small-text detail-link">
+          {{ result.status === 'passed' ? 'Detay →' : 'Hata raporu →' }}
+        </RouterLink>
       </div>
 
       <p v-if="result.error" class="form-error" data-testid="result-error">{{ result.error }}</p>

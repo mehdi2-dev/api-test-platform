@@ -68,6 +68,24 @@ const routes = [
     meta: { title: 'Zamanlamalar' },
   },
   {
+    path: '/history',
+    name: 'history',
+    component: () => import('@/views/HistoryView.vue'),
+    meta: { title: 'Test Geçmişi' },
+  },
+  {
+    path: '/history/:id(\\d+)',
+    name: 'run-detail',
+    component: () => import('@/views/RunDetailView.vue'),
+    meta: { title: 'Çalıştırma detayı' },
+  },
+  {
+    path: '/notifications',
+    name: 'notifications',
+    component: () => import('@/views/NotificationsView.vue'),
+    meta: { title: 'Bildirimler', roles: ['admin', 'tester'] },
+  },
+  {
     path: '/403',
     name: 'forbidden',
     component: () => import('@/views/ForbiddenView.vue'),

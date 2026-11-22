@@ -577,6 +577,9 @@ const usableApis = computed(() => allApis.value)
             <template v-if="stepRun(step)">
               <p class="small-text">
                 <code class="break">{{ stepRun(step).request.url }}</code>
+                <RouterLink :to="`/history/${step.test_run_id}`" class="link detail-link">
+                  {{ step.status === 'passed' ? 'Detay →' : 'Hata raporu →' }}
+                </RouterLink>
               </p>
               <pre v-if="stepRun(step).response" class="code-block">{{ stepRun(step).response.body || '(boş cevap)' }}</pre>
             </template>
