@@ -99,6 +99,18 @@ kuralları cevaba uygular ve sonucu kaydeder (**Geçti / Kaldı / Hata**).
 JSONPath örnekleri: `$.status`, `$.items[0].id`, `$.items[-1]`, `$['alan adı']`.
 Beklenen değerde de `{{değişken}}` kullanılabilir. Çalıştırma kayıtları: `GET /api/runs`.
 
+### Koleksiyonlar (senaryolar)
+
+**Koleksiyonlar** sayfasında API'ler sıralı bir senaryoda birleştirilir (sürükle-bırak ile
+sıralanır). Bir adımın cevabından değer alınıp sonraki adımlarda kullanılabilir:
+
+1. `POST {{base_url}}/api/auth/login` → cevaptan **`$.access_token` → `token`** (gizli)
+2. `GET {{base_url}}/api/auth/me` → Bearer token: `{{token}}`
+
+"Bir adım geçemezse dur" seçeneği kapalıysa kalan adımlar yine çalışır. **Dışa aktar**
+koleksiyonu JSON dosyasına yazar (gizli değerler yazılmaz, `{{token}}` gibi yer tutucu
+konur); **İçe aktar** bu dosyadan API tanımlarını ve koleksiyonu yeniden oluşturur.
+
 ## Docker'sız geliştirme (VS Code'da)
 
 PostgreSQL ve Redis'i yine Docker'dan çalıştırmak en kolayı:

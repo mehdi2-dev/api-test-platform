@@ -24,6 +24,7 @@ def save_run(
     result: SendResult,
     results: list[AssertionResult],
     user: User | None,
+    collection_run_id: int | None = None,
 ) -> ApiTestRun:
     response = None
     if result.ok:
@@ -41,6 +42,7 @@ def save_run(
         method=api.method.value,
         environment_name=result.environment,
         triggered_by_id=user.id if user else None,
+        collection_run_id=collection_run_id,
         status=run_status(result, results),
         status_code=result.status_code,
         elapsed_ms=result.elapsed_ms,
@@ -71,6 +73,7 @@ def _summary_fields(run: ApiTestRun) -> dict:
         "failed_count": run.failed_count,
         "error": run.error,
         "triggered_by_id": run.triggered_by_id,
+        "collection_run_id": run.collection_run_id,
         "created_at": run.created_at,
     }
 

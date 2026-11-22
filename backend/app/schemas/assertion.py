@@ -152,6 +152,7 @@ class TestRunSummary(BaseModel):
     failed_count: int
     error: str | None
     triggered_by_id: int | None
+    collection_run_id: int | None = None
     created_at: datetime
 
 

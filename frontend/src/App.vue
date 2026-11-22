@@ -12,6 +12,7 @@ const envStore = useEnvironmentStore()
 const blankLayout = computed(() => route.meta.layout === 'blank')
 // /apis/5 gibi alt sayfalarda da menüdeki "API'ler" seçili görünsün
 const inApis = computed(() => route.path.startsWith('/apis'))
+const inCollections = computed(() => route.path.startsWith('/collections'))
 
 // Giriş yapılınca ortam listesini yükle (sol menüdeki seçici için)
 watch(
@@ -50,7 +51,13 @@ function logout() {
           API'ler
         </RouterLink>
         <RouterLink to="/environments" data-testid="nav-environments">Ortamlar</RouterLink>
-        <span class="nav-soon" title="ATOP-37">Koleksiyonlar</span>
+        <RouterLink
+          to="/collections"
+          data-testid="nav-collections"
+          :class="{ 'nav-active': inCollections }"
+        >
+          Koleksiyonlar
+        </RouterLink>
         <span class="nav-soon" title="ATOP-46">Test Geçmişi</span>
       </nav>
 

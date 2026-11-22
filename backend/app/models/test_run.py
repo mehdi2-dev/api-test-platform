@@ -35,6 +35,10 @@ class ApiTestRun(Base):
     triggered_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Koleksiyonun bir adımı olarak çalıştıysa hangi koleksiyon çalıştırmasına ait (Epic 6)
+    collection_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("collection_runs.id", ondelete="CASCADE"), nullable=True, index=True
+    )
 
     status: Mapped[RunStatus] = mapped_column(
         Enum(RunStatus, name="run_status", values_callable=lambda e: [i.value for i in e]),

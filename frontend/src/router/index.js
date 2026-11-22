@@ -44,6 +44,24 @@ const routes = [
     meta: { title: 'Ortamlar' },
   },
   {
+    path: '/collections',
+    name: 'collections',
+    component: () => import('@/views/CollectionsView.vue'),
+    meta: { title: 'Koleksiyonlar' },
+  },
+  {
+    path: '/collections/new',
+    name: 'collection-new',
+    component: () => import('@/views/CollectionEditView.vue'),
+    meta: { title: 'Yeni koleksiyon', roles: ['admin', 'tester'] },
+  },
+  {
+    path: '/collections/:id(\\d+)',
+    name: 'collection-edit',
+    component: () => import('@/views/CollectionEditView.vue'),
+    meta: { title: 'Koleksiyon' },
+  },
+  {
     path: '/403',
     name: 'forbidden',
     component: () => import('@/views/ForbiddenView.vue'),
