@@ -73,6 +73,17 @@ istek görünür.
 - Docker içinden kendi API'mizi denemek için URL: `http://localhost:8000/api/health`
   (konteynerin içinde `localhost` backend'in kendisidir).
 
+### Ortamlar ve değişkenler
+
+**Ortamlar** sayfasından Dev / Stage / Prod gibi ortamlar ve değişkenleri (`base_url`,
+`token`...) tanımlanır. API tanımlarında `{{base_url}}/users` ya da token alanında
+`{{token}}` yazılır; gönderirken sol menüde seçili ortamın değerleri yerine konur.
+Böylece aynı API tanımı kod değiştirmeden her ortamda çalışır.
+
+- **Gizli** işaretli değişkenler şifreli saklanır, ekranda ve sonuçlarda `********` görünür.
+- **Production** işaretli ortamda POST / PUT / PATCH / DELETE istekleri açık onay olmadan
+  gönderilmez (API'de `confirm_production: true`).
+
 ## Docker'sız geliştirme (VS Code'da)
 
 PostgreSQL ve Redis'i yine Docker'dan çalıştırmak en kolayı:

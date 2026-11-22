@@ -38,6 +38,12 @@ const routes = [
     meta: { title: 'API' },
   },
   {
+    path: '/environments',
+    name: 'environments',
+    component: () => import('@/views/EnvironmentsView.vue'),
+    meta: { title: 'Ortamlar' },
+  },
+  {
     path: '/403',
     name: 'forbidden',
     component: () => import('@/views/ForbiddenView.vue'),

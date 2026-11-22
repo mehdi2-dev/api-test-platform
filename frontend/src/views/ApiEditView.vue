@@ -2,13 +2,15 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import api from '@/api/client'
-import { errorMessage } from '@/api/errors'
+import { errorCode, errorMessage } from '@/api/errors'
 import KeyValueEditor from '@/components/KeyValueEditor.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useEnvironmentStore } from '@/stores/environment'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const envStore = useEnvironmentStore()
 const canEdit = computed(() => auth.hasRole('admin', 'tester'))
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
@@ -206,9 +208,24 @@ async function send() {
   if (!saved) return
   notice.value = ''
   sending.value = true
+  const options = { environment_id: envStore.activeId }
   try {
-    const { data } = await api.post(`/apis/${saved.id}/send`)
-    result.value = data
+    try {
+      const { data } = await api.post(`/apis/${saved.id}/send`, options)
+      result.value = data
+    } catch (err) {
+      // Production koruması: veri değiştiren istek için kullanıcıdan açık onay iste
+      if (errorCode(err) !== 'production_confirmation_required') throw err
+      if (!window.confirm(errorMessage(err))) {
+        notice.value = 'İstek gönderilmedi'
+        return
+      }
+      const { data } = await api.post(`/apis/${saved.id}/send`, {
+        ...options,
+        confirm_production: true,
+      })
+      result.value = data
+    }
     resultTab.value = 'body'
   } catch (err) {
     error.value = errorMessage(err, 'İstek gönderilemedi')
@@ -216,6 +233,27 @@ async function send() {
     sending.value = false
   }
 }
+
+// --- Kullanılan değişkenler ve aktif ortam ---
+
+const PLACEHOLDER = /\{\{\s*([A-Za-z_][A-Za-z0-9_.-]*)\s*\}\}/g
+
+const usedVariables = computed(() => {
+  const texts = [
+    form.url,
+    form.body_type === 'none' ? '' : form.body,
+    ...form.headers.flatMap((row) => (row.enabled ? [row.key, row.value] : [])),
+    ...form.query_params.flatMap((row) => (row.enabled ? [row.key, row.value] : [])),
+    ...['token', 'username', 'password', 'key_name', 'key_value'].map((f) => form.auth[f]),
+  ]
+  const names = new Set()
+  for (const text of texts) {
+    for (const match of (text ?? '').matchAll(PLACEHOLDER)) names.add(match[1])
+  }
+  return [...names].sort()
+})
+
+const activeKeys = computed(() => new Set((envStore.active?.variables ?? []).map((v) => v.key)))
 
 // --- Sonuç ---
 
@@ -276,6 +314,27 @@ const enabledCount = (list) => list.filter((row) => row.enabled && row.key.trim(
           />
         </div>
       </fieldset>
+
+      <div class="env-line" data-testid="env-line">
+        <span class="muted">Ortam:</span>
+        <template v-if="envStore.active">
+          <b>{{ envStore.active.name }}</b>
+          <span v-if="envStore.active.is_production" class="badge badge--prod">PROD</span>
+        </template>
+        <span v-else class="muted">seçilmedi (sol menüden seçin)</span>
+        <template v-if="usedVariables.length">
+          <span class="muted">· Değişkenler:</span>
+          <span
+            v-for="name in usedVariables"
+            :key="name"
+            class="var-chip"
+            :class="activeKeys.has(name) ? 'var-chip--ok' : 'var-chip--missing'"
+            :title="activeKeys.has(name) ? 'Aktif ortamda tanımlı' : 'Aktif ortamda yok'"
+          >
+            {{ name }}
+          </span>
+        </template>
+      </div>
 
       <nav class="tabs">
         <button
@@ -454,6 +513,7 @@ const enabledCount = (list) => list.filter((row) => row.enabled && row.key.trim(
         </span>
         <span v-else class="status-pill status--error">Cevap yok</span>
         <span><b>{{ result.elapsed_ms }}</b> ms</span>
+        <span v-if="result.environment" class="muted">Ortam: {{ result.environment }}</span>
         <span v-if="result.ok" class="muted">{{ formatSize(result.size_bytes) }}</span>
       </div>
 

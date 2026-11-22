@@ -12,8 +12,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession, require_roles
+from app.api.environments import get_environment_or_404, variable_values
 from app.core.crypto import decrypt_json, encrypt_json
-from app.models.api_definition import ApiDefinition, AuthType
+from app.models.api_definition import ApiDefinition, AuthType, HttpMethod
 from app.models.user import Role, User
 from app.schemas.api_definition import (
     MASK,
@@ -26,6 +27,7 @@ from app.schemas.api_definition import (
     check_json_body,
     masked_auth,
 )
+from app.schemas.environment import SendOptions
 from app.services import http_runner
 
 router = APIRouter(
@@ -35,7 +37,10 @@ router = APIRouter(
 )
 
 Editor = Annotated[User, Depends(require_roles(Role.ADMIN, Role.TESTER))]
-NOT_FOUND = {404: {"description": "API tanımı bulunamadı"}}
+NOT_FOUND = {404: {"description": "API tanımı veya ortam bulunamadı"}}
+# Veri değiştirebilen metodlar: Production ortamında açık onay ister (ATOP-30)
+MUTATING_METHODS = {HttpMethod.POST, HttpMethod.PUT, HttpMethod.PATCH, HttpMethod.DELETE}
+PRODUCTION_CONFIRMATION = "production_confirmation_required"
 FORBIDDEN = {403: {"description": "Sadece Admin ve Tester"}}
 
 
@@ -199,12 +204,70 @@ def delete_api(api_id: int, _: Editor, db: DbSession) -> None:
     response_model=SendResult,
     summary="İsteği şimdi gönder ve cevabı göster",
     description=(
-        "Kayıtlı tanımı olduğu gibi gönderir. Hedef sunucu hata kodu dönse bile bu endpoint "
-        "200 döner; sonucun kendisi status_code alanındadır. Bağlantı kurulamazsa ok=false "
-        "ve error alanı dolu gelir."
+        "Kayıtlı tanımı gönderir. environment_id verilirse {{değişken}}'ler o ortamın "
+        "değerleriyle doldurulur. Hedef sunucu hata kodu dönse bile bu endpoint 200 döner; "
+        "sonucun kendisi status_code alanındadır. Bağlantı kurulamazsa ok=false ve error "
+        "alanı dolu gelir.\n\n"
+        "Production ortamında POST/PUT/PATCH/DELETE istekleri confirm_production=true "
+        "olmadan çalışmaz (409)."
     ),
-    responses={**NOT_FOUND, **FORBIDDEN},
+    responses={
+        **NOT_FOUND,
+        **FORBIDDEN,
+        409: {
+            "description": "Production ortamında veri değiştiren istek için onay gerekli",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": {
+                            "code": PRODUCTION_CONFIRMATION,
+                            "message": "Prod ortamında POST isteği veri değiştirebilir.",
+                        }
+                    }
+                }
+            },
+        },
+    },
 )
-def send_api(api_id: int, _: Editor, db: DbSession, transport: HttpTransport) -> SendResult:
+def send_api(
+    api_id: int,
+    _: Editor,
+    db: DbSession,
+    transport: HttpTransport,
+    options: SendOptions | None = None,
+) -> SendResult:
     api = _get_or_404(db, api_id)
-    return http_runner.send(api, _stored_auth(api), transport=transport)
+    options = options or SendOptions()
+
+    variables: dict[str, str] = {}
+    secrets: list[str] = []
+    environment_name: str | None = None
+    if options.environment_id is not None:
+        environment = get_environment_or_404(db, options.environment_id)
+        environment_name = environment.name
+        variables, secrets = variable_values(environment)
+
+        if (
+            environment.is_production
+            and api.method in MUTATING_METHODS
+            and not options.confirm_production
+        ):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail={
+                    "code": PRODUCTION_CONFIRMATION,
+                    "message": (
+                        f"'{environment.name}' bir Production ortamı ve {api.method.value} "
+                        "isteği gerçek verileri değiştirebilir. Emin misiniz?"
+                    ),
+                },
+            )
+
+    return http_runner.send(
+        api,
+        _stored_auth(api),
+        transport=transport,
+        variables=variables,
+        secret_values=secrets,
+        environment_name=environment_name,
+    )

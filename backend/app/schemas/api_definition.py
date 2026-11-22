@@ -169,4 +169,5 @@ class SendResult(BaseModel):
     body_json: Any | None = Field(default=None, description="Cevap JSON ise ayrıştırılmış hali")
     truncated: bool = Field(default=False, description="Body çok uzun olduğu için kısaltıldı mı")
     error: str | None = Field(default=None, description="Cevap alınamadıysa nedeni")
+    environment: str | None = Field(default=None, description="Kullanılan ortamın adı")
     request: SentRequest
