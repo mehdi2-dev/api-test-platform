@@ -15,3 +15,35 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+# Hexagonal mimari kuralları (ATOP-60): `lint-imports` ile çalışır, CI'da denetlenir.
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Katmanlar: adapters -> application -> domain (bagimlilik ice dogru)"
+type = "layers"
+layers = ["app.adapters", "app.application", "app.domain"]
+
+[[tool.importlinter.contracts]]
+name = "Domain ve application framework bilmez"
+type = "forbidden"
+source_modules = ["app.domain", "app.application"]
+forbidden_modules = [
+    "fastapi",
+    "starlette",
+    "sqlalchemy",
+    "pydantic",
+    "httpx",
+    "celery",
+    "redis",
+    "jwt",
+    "bcrypt",
+    "cryptography",
+    "app.api",
+    "app.db",
+    "app.models",
+    "app.schemas",
+    "app.worker",
+]

@@ -24,6 +24,8 @@ jobs:
         run: ruff check .
       - name: Ruff format kontrolü
         run: ruff format --check .
+      - name: Mimari kuralları (import-linter)
+        run: lint-imports
       - name: Testler
         run: pytest -v
 
