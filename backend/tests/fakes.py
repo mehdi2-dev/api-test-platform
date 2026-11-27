@@ -8,6 +8,7 @@ from typing import Any
 from app.application.errors import InvalidToken
 from app.application.ports.auth import TokenKind, TokenPair
 from app.domain.api_definitions import ApiDefinition
+from app.domain.collections import Collection, CollectionRun
 from app.domain.environments import Environment
 from app.domain.errors import SecretUnreadable
 from app.domain.testing.runs import ApiTestRun, SendOutcome
@@ -146,8 +147,9 @@ class InMemoryApiDefinitionRepository:
 class FakeApiSender:
     """Ağa çıkmadan, önceden verilen sonucu döndüren gönderici; çağrıları kaydeder."""
 
-    def __init__(self, outcome: SendOutcome) -> None:
-        self.outcome = outcome
+    def __init__(self, *outcomes: SendOutcome) -> None:
+        """Her çağrıda sıradaki sonucu döner; sonuncusu tekrarlanır."""
+        self.outcomes = outcomes
         self.calls: list[dict[str, Any]] = []
 
     def send(
@@ -168,7 +170,7 @@ class FakeApiSender:
                 "environment_name": environment_name,
             }
         )
-        return self.outcome
+        return self.outcomes[min(len(self.calls), len(self.outcomes)) - 1]
 
 
 class InMemoryApiTestRunRepository:
@@ -178,3 +180,42 @@ class InMemoryApiTestRunRepository:
     def add(self, run: ApiTestRun) -> None:
         run.id = len(self.items) + 1
         self.items.append(run)
+
+
+class InMemoryCollectionRepository:
+    def __init__(self) -> None:
+        self.items: dict[int, Collection] = {}
+
+    def get(self, collection_id: int) -> Collection | None:
+        return self.items.get(collection_id)
+
+    def save(self, collection: Collection) -> None:
+        if collection.id is None:
+            collection.id = len(self.items) + 1
+        self.items[collection.id] = collection
+
+
+class InMemoryCollectionRunRepository:
+    def __init__(self) -> None:
+        self.items: dict[int, CollectionRun] = {}
+
+    def get(self, run_id: int) -> CollectionRun | None:
+        return self.items.get(run_id)
+
+    def save(self, run: CollectionRun) -> None:
+        if run.id is None:
+            run.id = len(self.items) + 1
+        self.items[run.id] = run
+
+    def discard_changes(self) -> None:
+        pass
+
+
+class RecordingNotifier:
+    """Bildirim göndermek yerine hangi çalıştırmalar için çağrıldığını kaydeder."""
+
+    def __init__(self) -> None:
+        self.notified: list[CollectionRun] = []
+
+    def notify(self, run: CollectionRun) -> None:
+        self.notified.append(run)
