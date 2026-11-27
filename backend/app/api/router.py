@@ -2,9 +2,9 @@
 
 from fastapi import APIRouter
 
+from app.adapters.inbound.http import auth, users
 from app.api import (
     apis,
-    auth,
     collections,
     dashboard,
     environments,
@@ -12,7 +12,6 @@ from app.api import (
     notifications,
     runs,
     schedules,
-    users,
 )
 
 api_router = APIRouter()

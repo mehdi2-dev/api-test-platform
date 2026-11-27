@@ -1,35 +1,7 @@
-"""Kullanıcı modeli ve roller.
+"""Geçiş dönemi (ATOP-61): User artık domain'de, tablo eşlemesi persistence adaptöründe.
 
-Roller (proje tanımındaki gibi):
-- admin:  her şeyi yapar, kullanıcıları yönetir
-- tester: API tanımlar, test oluşturur ve çalıştırır
-- viewer: sadece görüntüler
+Eski import'lar bozulmasın diye buradan yeniden dışa aktarılır; ATOP-65'te kaldırılacak.
 """
 
-from enum import StrEnum
-
-from sqlalchemy import Boolean, Enum, String
-from sqlalchemy.orm import Mapped, mapped_column
-
-from app.db.base import Base, TimestampMixin
-
-
-class Role(StrEnum):
-    ADMIN = "admin"
-    TESTER = "tester"
-    VIEWER = "viewer"
-
-
-class User(TimestampMixin, Base):
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    full_name: Mapped[str] = mapped_column(String(100))
-    # Şifrenin kendisi asla saklanmaz, sadece bcrypt özeti (hash)
-    hashed_password: Mapped[str] = mapped_column(String(255))
-    role: Mapped[Role] = mapped_column(
-        Enum(Role, name="user_role", values_callable=lambda roles: [r.value for r in roles]),
-        default=Role.VIEWER,
-    )
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+from app.adapters.outbound.persistence.users import users_table  # noqa: F401  (eşlemeyi yükler)
+from app.domain.users import Role, User  # noqa: F401

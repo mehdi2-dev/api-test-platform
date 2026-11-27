@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.adapters.inbound.http.errors import register_error_handlers
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.logging import setup_logging
@@ -78,6 +79,7 @@ async def security_headers(request: Request, call_next):
     return response
 
 
+register_error_handlers(app)
 app.include_router(api_router, prefix=settings.api_prefix)
 
 

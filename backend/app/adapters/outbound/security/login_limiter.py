@@ -1,4 +1,4 @@
-"""Giriş denemesi sınırı (brute-force koruması).
+"""LoginAttemptLimiter portunun bellek içi adaptörü (brute-force koruması).
 
 Aynı e-posta + IP ile kısa sürede çok sayıda hatalı giriş denenirse bir süre kilitlenir
 ve 429 (Too Many Requests) döner. Başarılı giriş sayacı sıfırlar.

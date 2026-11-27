@@ -12,12 +12,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.rate_limit import login_limiter
-from app.core.security import hash_password
+from app.adapters.outbound.security.login_limiter import login_limiter
+from app.adapters.outbound.security.passwords import hash_password
 from app.db.session import get_db
+from app.domain.users import Role, User
 from app.main import app
 from app.models import Base
-from app.models.user import Role, User
 
 TEST_PASSWORD = "Sifre12345"
 

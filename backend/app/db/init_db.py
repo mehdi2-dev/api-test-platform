@@ -2,32 +2,26 @@
 
 import logging
 
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.adapters.outbound.persistence.users import SqlAlchemyUserRepository
+from app.adapters.outbound.security.passwords import BcryptPasswordHasher
+from app.application.use_cases.users import EnsureFirstAdmin
 from app.core.config import settings
-from app.core.security import hash_password
-from app.models.user import Role, User
+from app.domain.users import User
 
 logger = logging.getLogger(__name__)
 
 
 def ensure_first_admin(db: Session) -> User | None:
     """Veritabanında hiç kullanıcı yoksa .env'deki bilgilerle ilk admini oluşturur."""
-    user_count = db.scalar(select(func.count()).select_from(User))
-    if user_count:
-        return None
-
-    admin = User(
-        email=settings.first_admin_email.lower(),
+    admin = EnsureFirstAdmin(SqlAlchemyUserRepository(db), BcryptPasswordHasher())(
+        email=settings.first_admin_email,
         full_name=settings.first_admin_name,
-        hashed_password=hash_password(settings.first_admin_password),
-        role=Role.ADMIN,
-        is_active=True,
+        password=settings.first_admin_password,
     )
-    db.add(admin)
-    db.commit()
-    logger.warning(
-        "İlk admin oluşturuldu: %s — giriş yaptıktan sonra şifresini değiştirin", admin.email
-    )
+    if admin is not None:
+        logger.warning(
+            "İlk admin oluşturuldu: %s — giriş yaptıktan sonra şifresini değiştirin", admin.email
+        )
     return admin
