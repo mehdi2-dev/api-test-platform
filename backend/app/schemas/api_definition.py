@@ -11,10 +11,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.domain.secrets import MASK
 from app.models.api_definition import AuthType, BodyType, HttpMethod
 from app.schemas.assertion import Assertion
 
-MASK = "********"
 SECRET_FIELDS = ("token", "password", "key_value")
 
 

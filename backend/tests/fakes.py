@@ -5,6 +5,8 @@ Use case'ler bunlarla veritabanı, bcrypt veya JWT olmadan, milisaniyeler içind
 
 from app.application.errors import InvalidToken
 from app.application.ports.auth import TokenKind, TokenPair
+from app.domain.environments import Environment
+from app.domain.errors import SecretUnreadable
 from app.domain.users import User
 
 
@@ -73,3 +75,39 @@ class FakeLoginLimiter:
 
     def succeeded(self, key: str) -> None:
         self.failures.pop(key, None)
+
+
+class InMemoryEnvironmentRepository:
+    def __init__(self) -> None:
+        self.items: dict[int, Environment] = {}
+        self._next_id = 1
+
+    def get(self, environment_id: int) -> Environment | None:
+        return self.items.get(environment_id)
+
+    def get_by_name(self, name: str) -> Environment | None:
+        return next((e for e in self.items.values() if e.name == name), None)
+
+    def list_all(self) -> list[Environment]:
+        return sorted(self.items.values(), key=lambda e: (e.is_production, e.name))
+
+    def save(self, environment: Environment) -> None:
+        if environment.id is None:
+            environment.id = self._next_id
+            self._next_id += 1
+        self.items[environment.id] = environment
+
+    def delete(self, environment: Environment) -> None:
+        self.items.pop(environment.id, None)
+
+
+class FakeCipher:
+    """Şifreleme yerine okunabilir bir önek: 'enc:<değer>'."""
+
+    def encrypt(self, plain: str) -> str:
+        return f"enc:{plain}"
+
+    def decrypt(self, token: str) -> str:
+        if not token.startswith("enc:"):
+            raise SecretUnreadable("Şifreli veri çözülemedi")
+        return token.removeprefix("enc:")

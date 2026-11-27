@@ -2,12 +2,11 @@
 
 from fastapi import APIRouter
 
-from app.adapters.inbound.http import auth, users
+from app.adapters.inbound.http import auth, environments, users
 from app.api import (
     apis,
     collections,
     dashboard,
-    environments,
     health,
     notifications,
     runs,

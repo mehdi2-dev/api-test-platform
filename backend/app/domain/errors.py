@@ -17,6 +17,10 @@ class ValidationFailed(DomainError):
     """İstek bir iş kuralına uymuyor."""
 
 
+class InvalidInput(DomainError):
+    """Gönderilen değer işlenemiyor (ör. kayıtlı değeri olmayan gizli alan için MASK)."""
+
+
 class NotFound(DomainError):
     """İstenen kayıt yok."""
 
@@ -27,3 +31,7 @@ class Conflict(DomainError):
 
 class AccessDenied(DomainError):
     """Bu işlem için yetki yok."""
+
+
+class SecretUnreadable(DomainError):
+    """Şifreli bir değer çözülemedi (şifreleme anahtarı değişmiş olabilir)."""

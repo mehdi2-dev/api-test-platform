@@ -8,7 +8,14 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from app.application.errors import AuthenticationFailed, TooManyAttempts
-from app.domain.errors import AccessDenied, Conflict, DomainError, NotFound
+from app.domain.errors import (
+    AccessDenied,
+    Conflict,
+    DomainError,
+    InvalidInput,
+    NotFound,
+    SecretUnreadable,
+)
 
 STATUS_CODES: list[tuple[type[DomainError], int]] = [
     (NotFound, status.HTTP_404_NOT_FOUND),
@@ -16,6 +23,8 @@ STATUS_CODES: list[tuple[type[DomainError], int]] = [
     (Conflict, status.HTTP_409_CONFLICT),
     (AuthenticationFailed, status.HTTP_401_UNAUTHORIZED),
     (TooManyAttempts, status.HTTP_429_TOO_MANY_REQUESTS),
+    (InvalidInput, 422),
+    (SecretUnreadable, status.HTTP_500_INTERNAL_SERVER_ERROR),
 ]
 
 
