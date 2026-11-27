@@ -18,9 +18,9 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
+from app.domain.testing.variables import mask_secrets, resolve
 from app.models.api_definition import ApiDefinition, AuthType, BodyType
 from app.schemas.api_definition import MASK, SendResult, SentRequest
-from app.services.variables import mask_secrets, resolve
 
 MAX_BODY_CHARS = 200_000
 # Bu header'ların değeri sonuçta her zaman maskelenir

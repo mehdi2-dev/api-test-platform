@@ -24,7 +24,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from urllib.parse import quote
 
-from app.schemas.api_definition import MASK
+from app.domain.secrets import MASK
 
 VARIABLE_NAME = r"[A-Za-z_][A-Za-z0-9_.-]*"
 PLACEHOLDER = re.compile(r"\{\{\s*(" + VARIABLE_NAME + r")\s*\}\}")

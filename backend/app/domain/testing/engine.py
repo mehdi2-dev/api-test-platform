@@ -1,4 +1,4 @@
-"""Test motoru: kuralları bir cevaba uygular (ATOP-32, ATOP-33, ATOP-34).
+"""Test motoru: kuralları bir cevaba uygular.
 
 Her kural için Geçti/Kaldı, cevapta bulunan değer ve okunur bir mesaj üretir.
 Kural ayarı bozuksa (ör. çalışma anında çözülen bir değişken sayı çıkmadıysa) program
@@ -9,10 +9,10 @@ import json
 import re
 from typing import Any
 
-from app.schemas.api_definition import SendResult
-from app.schemas.assertion import STATUS_RANGE, Assertion, AssertionResult, AssertionType
-from app.services import jsonpath
-from app.services.variables import resolve
+from app.domain.errors import InvalidInput
+from app.domain.testing import jsonpath
+from app.domain.testing.rules import STATUS_RANGE, AssertionType, Response, Rule, RuleResult
+from app.domain.testing.variables import resolve
 
 MAX_ACTUAL_CHARS = 200
 
@@ -67,7 +67,7 @@ def _number(text: str, what: str) -> float:
         raise RuleError(f"{what} sayı olmalı: '{text}'") from exc
 
 
-def _check_status(rule: Assertion, code: int) -> tuple[bool, str]:
+def _check_status(rule: Rule, code: int) -> tuple[bool, str]:
     expected = rule.expected or ""
     if rule.operator in ("equals", "not_equals"):
         target = int(_number(expected, "Beklenen durum kodu"))
@@ -90,7 +90,7 @@ def _check_status(rule: Assertion, code: int) -> tuple[bool, str]:
     return code in allowed, f"Beklenen {expected} içinden biri, gelen {code}"
 
 
-def _check_header(rule: Assertion, headers: dict[str, str]) -> tuple[bool, Any, str]:
+def _check_header(rule: Rule, headers: dict[str, str]) -> tuple[bool, Any, str]:
     name = (rule.target or "").lower()
     lowered = {key.lower(): value for key, value in headers.items()}
     actual = lowered.get(name, jsonpath.MISSING)
@@ -107,7 +107,7 @@ def _check_header(rule: Assertion, headers: dict[str, str]) -> tuple[bool, Any, 
     return expected in actual, actual, f"'{expected}' içermeli"
 
 
-def _check_json(rule: Assertion, body_json: Any, is_json: bool) -> tuple[bool, Any, str]:
+def _check_json(rule: Rule, body_json: Any, is_json: bool) -> tuple[bool, Any, str]:
     if not is_json:
         return False, jsonpath.MISSING, "Cevap JSON değil"
     try:
@@ -160,42 +160,52 @@ def _check_json(rule: Assertion, body_json: Any, is_json: bool) -> tuple[bool, A
     return actual < limit, actual, f"{limit:g} değerinden küçük olmalı"
 
 
-def evaluate_one(rule: Assertion, result: SendResult) -> AssertionResult:
-    base = {
-        "type": rule.type,
-        "target": rule.target,
-        "operator": rule.operator,
-        "expected": rule.expected,
-    }
-    if not result.ok or result.status_code is None:
-        return AssertionResult(**base, passed=False, message="Cevap alınamadı")
+def is_json_response(response: Response) -> bool:
+    return response.body_json is not None or response.body.strip() == "null"
+
+
+def evaluate_one(rule: Rule, response: Response) -> RuleResult:
+    def result(passed: bool, message: str, actual: str | None = None) -> RuleResult:
+        return RuleResult(
+            type=rule.type,
+            target=rule.target,
+            operator=rule.operator,
+            expected=rule.expected,
+            passed=passed,
+            actual=actual,
+            message=message,
+        )
+
+    if not response.ok or response.status_code is None:
+        return result(False, "Cevap alınamadı")
 
     try:
         if rule.type == AssertionType.STATUS_CODE:
-            passed, message = _check_status(rule, result.status_code)
-            actual: Any = result.status_code
+            passed, message = _check_status(rule, response.status_code)
+            actual: Any = response.status_code
         elif rule.type == AssertionType.RESPONSE_TIME:
             limit = _number(rule.expected or "", "Süre eşiği")
-            passed = result.elapsed_ms < limit
-            actual = result.elapsed_ms
-            message = f"{limit:g} ms altında olmalı, sürdü {result.elapsed_ms:g} ms"
+            passed = response.elapsed_ms < limit
+            actual = response.elapsed_ms
+            message = f"{limit:g} ms altında olmalı, sürdü {response.elapsed_ms:g} ms"
         elif rule.type == AssertionType.HEADER:
-            passed, actual, message = _check_header(rule, result.headers)
+            passed, actual, message = _check_header(rule, response.headers)
         else:
-            is_json = result.body_json is not None or result.body.strip() == "null"
-            passed, actual, message = _check_json(rule, result.body_json, is_json)
+            passed, actual, message = _check_json(
+                rule, response.body_json, is_json_response(response)
+            )
     except RuleError as exc:
-        return AssertionResult(**base, passed=False, message=f"Kural uygulanamadı: {exc}")
+        return result(False, f"Kural uygulanamadı: {exc}")
 
-    return AssertionResult(**base, passed=passed, actual=_show(actual), message=message)
+    return result(passed, message, _show(actual))
 
 
 def evaluate(
-    rules: list[dict[str, Any]], result: SendResult, variables: dict[str, str] | None = None
-) -> list[AssertionResult]:
+    rules: list[dict[str, Any]], response: Response, variables: dict[str, str] | None = None
+) -> list[RuleResult]:
     """Etkin kuralları sırayla uygular. Hedef ve beklenen değerdeki {{değişken}}'ler çözülür."""
     variables = variables or {}
-    results: list[AssertionResult] = []
+    results: list[RuleResult] = []
     for raw in rules:
         if not raw.get("enabled", True):
             continue
@@ -206,26 +216,26 @@ def evaluate(
             "expected": resolve(raw.get("expected"), variables, missing),
         }
         try:
-            rule = Assertion.model_validate(data)
-        except ValueError as exc:
+            rule = Rule.from_dict(data)
+        except InvalidInput as exc:
             try:
                 kind = AssertionType(raw.get("type"))
             except ValueError:
                 kind = AssertionType.JSON_PATH
             results.append(
-                AssertionResult(
+                RuleResult(
                     type=kind,
                     target=raw.get("target"),
                     operator=raw.get("operator", "?"),
                     expected=raw.get("expected"),
                     passed=False,
-                    message=f"Kural geçersiz: {exc}",
+                    message=f"Kural geçersiz: {exc.message}",
                 )
             )
             continue
         if missing:
             results.append(
-                AssertionResult(
+                RuleResult(
                     type=rule.type,
                     target=rule.target,
                     operator=rule.operator,
@@ -235,5 +245,5 @@ def evaluate(
                 )
             )
             continue
-        results.append(evaluate_one(rule, result))
+        results.append(evaluate_one(rule, response))
     return results

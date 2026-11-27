@@ -3,27 +3,30 @@
 Saklanan istek/cevap/kural sonuçlarında gizli değerler maskelenir (ATOP-50).
 """
 
+from dataclasses import asdict
+
 from sqlalchemy.orm import Session
 
+from app.domain.testing.masking import is_sensitive_path, mask_headers, mask_text
+from app.domain.testing.rules import RuleResult
+from app.domain.testing.variables import mask_secrets
 from app.models.api_definition import ApiDefinition
 from app.models.test_run import ApiTestRun, RunStatus
 from app.schemas.api_definition import MASK, SendResult
-from app.schemas.assertion import AssertionResult, TestRunRead, TestRunSummary
-from app.services.masking import is_sensitive_path, mask_headers, mask_text
-from app.services.variables import mask_secrets
+from app.schemas.assertion import TestRunRead, TestRunSummary
 
 # Veritabanında saklanan cevap gövdesinin üst sınırı (karakter)
 MAX_STORED_BODY = 50_000
 
 
-def run_status(result: SendResult, results: list[AssertionResult]) -> RunStatus:
+def run_status(result: SendResult, results: list[RuleResult]) -> RunStatus:
     if not result.ok:
         return RunStatus.ERROR
     return RunStatus.FAILED if any(not item.passed for item in results) else RunStatus.PASSED
 
 
-def _masked_result(item: AssertionResult, secrets: list[str]) -> dict:
-    data = item.model_dump(mode="json")
+def _masked_result(item: RuleResult, secrets: list[str]) -> dict:
+    data = {**asdict(item), "type": item.type.value}
     if data.get("actual") is not None:
         data["actual"] = (
             MASK if is_sensitive_path(item.target) else mask_secrets(data["actual"], secrets)
@@ -35,7 +38,7 @@ def save_run(
     db: Session,
     api: ApiDefinition,
     result: SendResult,
-    results: list[AssertionResult],
+    results: list[RuleResult],
     user_id: int | None,
     collection_run_id: int | None = None,
     secret_values: list[str] | None = None,

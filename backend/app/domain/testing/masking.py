@@ -15,8 +15,8 @@ import json
 import re
 from typing import Any
 
-from app.schemas.api_definition import MASK
-from app.services.variables import mask_secrets
+from app.domain.secrets import MASK
+from app.domain.testing.variables import mask_secrets
 
 SENSITIVE_KEY = re.compile(
     r"(pass(word|wd)?|secret|token|api[-_]?key|authorization|credential|private[-_]?key|session)",

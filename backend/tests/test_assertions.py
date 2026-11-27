@@ -12,12 +12,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.apis import get_http_transport
+from app.domain.testing import jsonpath
+from app.domain.testing.engine import evaluate
 from app.main import app
 from app.models.user import Role
 from app.schemas.api_definition import SendResult, SentRequest
 from app.schemas.assertion import Assertion
-from app.services import jsonpath
-from app.services.assertions import evaluate
 
 BODY = {
     "status": "ok",

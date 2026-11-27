@@ -34,6 +34,8 @@ from app.application.use_cases.api_definitions import (
 )
 from app.domain.api_definitions import ApiDefinition
 from app.domain.errors import ProductionConfirmationRequired
+from app.domain.testing.engine import evaluate
+from app.domain.testing.masking import mask_headers, mask_text
 from app.domain.users import Role, User
 from app.schemas.api_definition import (
     ApiDefinitionCreate,
@@ -45,8 +47,6 @@ from app.schemas.api_definition import (
 from app.schemas.assertion import TestRunRead
 from app.schemas.environment import SendOptions
 from app.services import http_runner
-from app.services.assertions import evaluate
-from app.services.masking import mask_headers, mask_text
 from app.services.test_runs import run_to_read, save_run
 
 router = APIRouter(

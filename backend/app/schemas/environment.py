@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.services.variables import VARIABLE_NAME
+from app.domain.testing.variables import VARIABLE_NAME
 
 VARIABLE_PATTERN = f"^{VARIABLE_NAME}$"
 

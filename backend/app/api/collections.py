@@ -15,6 +15,7 @@ from app.api.apis import PRODUCTION_CONFIRMATION, HttpTransport
 from app.api.deps import CurrentUser, DbSession, require_roles
 from app.api.environments import get_environment_or_404
 from app.core.crypto import decrypt_json, encrypt_json
+from app.domain.testing.variables import find_variables
 from app.models.api_definition import ApiDefinition, AuthType
 from app.models.collection import Collection, CollectionItem, CollectionRun
 from app.models.test_run import ApiTestRun
@@ -49,7 +50,6 @@ from app.services.collection_runner import (
 )
 from app.services.scheduler import QUEUE_ERROR, Enqueue, celery_enqueue
 from app.services.test_runs import run_to_read
-from app.services.variables import find_variables
 
 router = APIRouter(
     prefix="/collections",

@@ -25,15 +25,16 @@ from sqlalchemy.orm import Session
 
 from app.api.environments import variable_values
 from app.core.crypto import decrypt_json
+from app.domain.testing import jsonpath
+from app.domain.testing.engine import evaluate
+from app.domain.testing.rules import AssertionType, RuleResult
 from app.models.api_definition import HttpMethod
 from app.models.collection import Collection, CollectionRun, RunState, RunTrigger
 from app.models.environment import Environment
 from app.models.test_run import RunStatus
 from app.schemas.api_definition import MASK, SendResult
-from app.schemas.assertion import AssertionResult, AssertionType
 from app.schemas.collection import ExtractedValue, Extraction, StepResult
-from app.services import http_runner, jsonpath
-from app.services.assertions import evaluate
+from app.services import http_runner
 from app.services.test_runs import run_status, save_run
 
 logger = logging.getLogger(__name__)
@@ -237,7 +238,7 @@ def run_collection(
                 extracted.append(ExtractedValue(variable=extraction.variable, found=False))
                 if result.ok:
                     rule_results.append(
-                        AssertionResult(
+                        RuleResult(
                             type=SOURCE_TYPES[extraction.source],
                             target=extraction.path,
                             operator="extract",
