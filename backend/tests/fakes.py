@@ -186,6 +186,37 @@ class InMemoryApiTestRunRepository:
     def for_collection_run(self, collection_run_id: int) -> list[ApiTestRun]:
         return [run for run in self.items if run.collection_run_id == collection_run_id]
 
+    def get(self, run_id: int) -> ApiTestRun | None:
+        return next((run for run in self.items if run.id == run_id), None)
+
+    def recent(self, *, api_id=None, status=None, limit: int = 20) -> list[ApiTestRun]:
+        found = [
+            run
+            for run in self.items
+            if (api_id is None or run.api_definition_id == api_id)
+            and (status is None or run.status == status)
+        ]
+        return sorted(found, key=lambda run: (run.created_at, run.id), reverse=True)[:limit]
+
+    def search(self, filters, *, offset: int, limit: int) -> tuple[int, list[ApiTestRun]]:
+        found = self.recent(limit=len(self.items))
+        if filters.name_contains:
+            found = [r for r in found if filters.name_contains.lower() in r.api_name.lower()]
+        return len(found), found[offset : offset + limit]
+
+    def since(self, moment: datetime) -> list[ApiTestRun]:
+        return [run for run in self.items if run.created_at >= moment]
+
+    def last_passed_before(self, api_definition_id: int, run_id: int) -> ApiTestRun | None:
+        earlier = [
+            run
+            for run in self.items
+            if run.api_definition_id == api_definition_id
+            and run.status == "passed"
+            and run.id < run_id
+        ]
+        return max(earlier, key=lambda run: run.id, default=None)
+
 
 class InMemoryCollectionRepository:
     def __init__(self) -> None:
@@ -228,6 +259,9 @@ class InMemoryCollectionRunRepository:
     def recent_for(self, collection_id: int, limit: int) -> list[CollectionRun]:
         runs = [r for r in self.items.values() if r.collection_id == collection_id]
         return sorted(runs, key=lambda r: r.id, reverse=True)[:limit]
+
+    def recent(self, limit: int) -> list[CollectionRun]:
+        return sorted(self.items.values(), key=lambda run: run.id, reverse=True)[:limit]
 
     def discard_changes(self) -> None:
         pass

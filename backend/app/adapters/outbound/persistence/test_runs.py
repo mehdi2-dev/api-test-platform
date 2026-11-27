@@ -3,6 +3,8 @@
 Tablo şeması eski modelle birebir aynıdır; migration gerekmez.
 """
 
+from datetime import datetime
+
 from sqlalchemy import (
     JSON,
     Column,
@@ -20,6 +22,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
+from app.domain.reporting import RunHistoryFilter
 from app.domain.testing.runs import ApiTestRun, RunStatus
 
 test_runs_table = Table(
@@ -89,3 +92,66 @@ class SqlAlchemyApiTestRunRepository:
     def for_collection_run(self, collection_run_id: int) -> list[ApiTestRun]:
         query = select(ApiTestRun).where(test_runs_table.c.collection_run_id == collection_run_id)
         return list(self._session.scalars(query))
+
+    def get(self, run_id: int) -> ApiTestRun | None:
+        return self._session.get(ApiTestRun, run_id)
+
+    @staticmethod
+    def _newest_first(query):
+        return query.order_by(test_runs_table.c.created_at.desc(), test_runs_table.c.id.desc())
+
+    def recent(
+        self, *, api_id: int | None = None, status: RunStatus | None = None, limit: int = 20
+    ) -> list[ApiTestRun]:
+        query = self._newest_first(select(ApiTestRun))
+        if api_id is not None:
+            query = query.where(test_runs_table.c.api_definition_id == api_id)
+        if status is not None:
+            query = query.where(test_runs_table.c.status == status)
+        return list(self._session.scalars(query.limit(limit)))
+
+    def search(
+        self, filters: RunHistoryFilter, *, offset: int, limit: int
+    ) -> tuple[int, list[ApiTestRun]]:
+        table = test_runs_table
+        conditions = []
+        if filters.name_contains:
+            conditions.append(table.c.api_name.ilike(f"%{filters.name_contains}%"))
+        if filters.api_id is not None:
+            conditions.append(table.c.api_definition_id == filters.api_id)
+        if filters.status is not None:
+            conditions.append(table.c.status == filters.status)
+        if filters.environment == "none":
+            conditions.append(table.c.environment_name.is_(None))
+        elif filters.environment:
+            conditions.append(table.c.environment_name == filters.environment)
+        if filters.source == "single":
+            conditions.append(table.c.collection_run_id.is_(None))
+        elif filters.source == "collection":
+            conditions.append(table.c.collection_run_id.is_not(None))
+        if filters.created_from:
+            conditions.append(table.c.created_at >= filters.created_from)
+        if filters.created_before:
+            conditions.append(table.c.created_at < filters.created_before)
+
+        total = self._session.scalar(select(func.count()).select_from(table).where(*conditions))
+        query = self._newest_first(select(ApiTestRun).where(*conditions))
+        items = list(self._session.scalars(query.offset(offset).limit(limit)))
+        return total or 0, items
+
+    def since(self, moment: datetime) -> list[ApiTestRun]:
+        query = select(ApiTestRun).where(test_runs_table.c.created_at >= moment)
+        return list(self._session.scalars(query))
+
+    def last_passed_before(self, api_definition_id: int, run_id: int) -> ApiTestRun | None:
+        table = test_runs_table
+        return self._session.scalar(
+            select(ApiTestRun)
+            .where(
+                table.c.api_definition_id == api_definition_id,
+                table.c.status == RunStatus.PASSED,
+                table.c.id < run_id,
+            )
+            .order_by(table.c.id.desc())
+            .limit(1)
+        )

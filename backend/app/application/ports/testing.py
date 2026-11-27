@@ -1,9 +1,11 @@
 """Test çalıştırmayla ilgili portlar: isteği gönderen ve sonucu saklayan."""
 
+from datetime import datetime
 from typing import Any, Protocol
 
 from app.domain.api_definitions import ApiDefinition
-from app.domain.testing.runs import ApiTestRun, SendOutcome
+from app.domain.reporting import RunHistoryFilter
+from app.domain.testing.runs import ApiTestRun, RunStatus, SendOutcome
 
 
 class ApiSender(Protocol):
@@ -31,4 +33,24 @@ class ApiTestRunRepository(Protocol):
 
     def for_collection_run(self, collection_run_id: int) -> list[ApiTestRun]:
         """Bir koleksiyon çalıştırmasının adımlarına ait kayıtlar."""
+        ...
+
+    def get(self, run_id: int) -> ApiTestRun | None: ...
+
+    def recent(
+        self, *, api_id: int | None = None, status: RunStatus | None = None, limit: int = 20
+    ) -> list[ApiTestRun]:
+        """En yeni önce."""
+        ...
+
+    def search(
+        self, filters: RunHistoryFilter, *, offset: int, limit: int
+    ) -> tuple[int, list[ApiTestRun]]:
+        """(filtreye uyan toplam kayıt, istenen sayfa); en yeni önce."""
+        ...
+
+    def since(self, moment: datetime) -> list[ApiTestRun]: ...
+
+    def last_passed_before(self, api_definition_id: int, run_id: int) -> ApiTestRun | None:
+        """Aynı API'nin bu kayıttan önceki son başarılı çalıştırması."""
         ...

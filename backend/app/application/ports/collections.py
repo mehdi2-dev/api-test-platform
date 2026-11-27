@@ -37,6 +37,10 @@ class CollectionRunRepository(Protocol):
         """Koleksiyonun son çalıştırmaları, en yeni önce."""
         ...
 
+    def recent(self, limit: int) -> list[CollectionRun]:
+        """Tüm koleksiyonların son çalıştırmaları, en yeni önce."""
+        ...
+
     def discard_changes(self) -> None:
         """Beklenmeyen bir hatadan sonra yarım kalan, kaydedilmemiş değişiklikleri atar."""
         ...

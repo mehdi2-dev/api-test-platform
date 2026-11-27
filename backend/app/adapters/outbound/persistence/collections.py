@@ -196,5 +196,14 @@ class SqlAlchemyCollectionRunRepository:
     def recent_for(self, collection_id: int, limit: int) -> list[CollectionRun]:
         return list(self._session.scalars(self._recent(collection_id, limit)))
 
+    def recent(self, limit: int) -> list[CollectionRun]:
+        table = collection_runs_table
+        query = (
+            select(CollectionRun)
+            .order_by(table.c.created_at.desc(), table.c.id.desc())
+            .limit(limit)
+        )
+        return list(self._session.scalars(query))
+
     def discard_changes(self) -> None:
         self._session.rollback()
