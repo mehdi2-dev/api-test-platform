@@ -64,22 +64,55 @@ ortamı **Demo** yap → bir örnek koleksiyonu açıp **Kaydet ve Çalıştır*
 api-test-platform/
 ├── backend/
 │   ├── app/
-│   │   ├── api/        HTTP endpoint'leri
-│   │   ├── core/       ayarlar, şifreleme, güvenlik, logging
-│   │   ├── db/         veritabanı bağlantısı
-│   │   ├── demo/       demo CRM servisi (örnek senaryolar için)
-│   │   ├── models/     veritabanı tabloları
-│   │   ├── schemas/    istek/cevap şemaları ve doğrulama
-│   │   ├── services/   iş mantığı: istek gönderme, test motoru, cron, bildirim...
-│   │   ├── worker/     Celery görevleri
-│   │   └── cli.py      yönetim komutları
+│   │   ├── domain/         iş kuralları (saf Python: test motoru, cron, koleksiyon, bildirim...)
+│   │   ├── application/
+│   │   │   ├── ports/      dış dünyaya açılan arayüzler (Protocol)
+│   │   │   └── use_cases/  uygulama senaryoları (giriş, API testi, koleksiyon koşturma...)
+│   │   ├── adapters/
+│   │   │   ├── inbound/    giren adaptörler: FastAPI router'ları, HTTP şemaları, demo verisi
+│   │   │   └── outbound/   çıkan adaptörler: veritabanı, şifreleme, HTTP istemcisi, e-posta/webhook, kuyruk
+│   │   ├── core/           ayarlar ve logging
+│   │   ├── demo/           demo CRM servisi (örnek senaryolar için)
+│   │   ├── worker/         Celery görevleri
+│   │   ├── composition.py  use case'leri gerçek adaptörlerle kuran kompozisyon kökü
+│   │   ├── bootstrap.py    ilk admin kullanıcısını oluşturma
+│   │   ├── main.py         FastAPI uygulaması
+│   │   └── cli.py          yönetim komutları
 │   ├── alembic/        veritabanı migration'ları
 │   ├── examples/       örnek koleksiyonlar (JSON)
-│   └── tests/          pytest testleri
+│   └── tests/          pytest testleri (unit/: sahte adaptörlerle use case testleri)
 ├── frontend/src/       Vue 3 uygulaması (views, components, stores)
 ├── docs/               kurulum, kullanım kılavuzu, kabul testi
 ├── docker-compose.yml  tüm servisler
-└── .github/workflows/  CI (lint, test, build)
+└── .github/workflows/  CI (lint, test, build, import kuralları)
+```
+
+## Mimari: Hexagonal (Ports & Adapters)
+
+Backend hexagonal mimariyle yazılmıştır. İş kuralları tek yerde (`domain`) durur ve
+hiçbir framework bilmez. Dış dünyayla (veritabanı, HTTP, e-posta, kuyruk) sadece
+**portlar** üzerinden konuşur; teknolojiyi **adaptörler** sağlar. Örneğin veritabanını
+değiştirmek istediğimizde sadece `adapters/outbound/persistence` değişir.
+
+```mermaid
+flowchart LR
+    HTTP[FastAPI router'ları] --> UC
+    CEL[Celery görevleri] --> UC
+    subgraph Çekirdek
+        UC[Use case'ler] --> D[Domain: iş kuralları]
+        UC --> P[Portlar]
+    end
+    P -.uygular.- DB[(PostgreSQL<br/>SQLAlchemy)]
+    P -.uygular.- SND[httpx ile istek]
+    P -.uygular.- NTF[E-posta / Webhook]
+    P -.uygular.- Q[Celery kuyruğu]
+```
+
+Bağımlılık hep içe doğrudur: `adapters → application → domain`. Bu kural
+[import-linter](https://import-linter.readthedocs.io/) ile denetlenir ve CI'da çalışır:
+
+```bash
+docker compose run --rm --no-deps backend lint-imports
 ```
 
 ## Testler

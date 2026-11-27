@@ -9,13 +9,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.apis import get_http_transport
-from app.core.crypto import decrypt_text
+from app.adapters.inbound.http.apis import get_http_transport
+from app.adapters.outbound.notifications import senders as notifications
+from app.adapters.outbound.security.crypto import decrypt_text
+from app.domain.notifications import NotificationChannel
+from app.domain.testing.runs import ApiTestRun
+from app.domain.users import Role
 from app.main import app
-from app.models.notification import NotificationChannel
-from app.models.test_run import ApiTestRun
-from app.models.user import Role
-from app.services import notifications
 
 SLACK = "https://hooks.slack.test/services/T000/B000/gizli-anahtar"
 

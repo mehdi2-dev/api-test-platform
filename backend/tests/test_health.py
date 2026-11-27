@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api import health
+from app.adapters.inbound.http import health
 from app.main import app
 
 

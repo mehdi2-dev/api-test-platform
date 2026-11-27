@@ -9,11 +9,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.router import api_router
+from app.adapters.inbound.http.errors import register_error_handlers
+from app.adapters.inbound.http.router import api_router
+from app.adapters.outbound.persistence.session import SessionLocal
+from app.bootstrap import ensure_first_admin
 from app.core.config import settings
 from app.core.logging import setup_logging
-from app.db.init_db import ensure_first_admin
-from app.db.session import SessionLocal
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -78,6 +79,7 @@ async def security_headers(request: Request, call_next):
     return response
 
 
+register_error_handlers(app)
 app.include_router(api_router, prefix=settings.api_prefix)
 
 

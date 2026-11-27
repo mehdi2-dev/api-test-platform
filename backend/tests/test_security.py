@@ -20,15 +20,15 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.apis import get_http_transport
+from app.adapters.inbound.http.apis import get_http_transport
+from app.adapters.inbound.http.schemas.api_definition import MASK
+from app.adapters.outbound.security import crypto
 from app.cli import rotate_all
-from app.core import crypto
 from app.core.config import settings
 from app.core.logging import SensitiveDataFilter, mask_log_text
+from app.domain.api_definitions import ApiDefinition, AuthType, HttpMethod
+from app.domain.users import Role
 from app.main import app, check_security_settings
-from app.models.api_definition import ApiDefinition, AuthType, HttpMethod
-from app.models.user import Role
-from app.schemas.api_definition import MASK
 
 ALL = {"viewer", "tester", "admin"}
 EDITORS = {"tester", "admin"}

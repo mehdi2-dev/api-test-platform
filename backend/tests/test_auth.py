@@ -1,6 +1,7 @@
 """Giriş, token ve "ben kimim" testleri (ATOP-18)."""
 
-from app.core.security import create_refresh_token, hash_password, verify_password
+from app.adapters.outbound.security.passwords import hash_password, verify_password
+from app.adapters.outbound.security.tokens import create_refresh_token
 from tests.conftest import TEST_PASSWORD
 
 

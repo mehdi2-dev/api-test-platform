@@ -14,13 +14,13 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.apis import get_http_transport
+from app.adapters.inbound.demo_seed import example_files
+from app.adapters.inbound.http.apis import get_http_transport
+from app.adapters.inbound.http.schemas.api_definition import MASK
 from app.demo.main import app as demo_app
 from app.demo.main import store
+from app.domain.users import Role
 from app.main import app
-from app.models.user import Role
-from app.schemas.api_definition import MASK
-from app.services.demo_seed import example_files
 
 
 @pytest.fixture

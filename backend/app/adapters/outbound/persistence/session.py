@@ -1,0 +1,21 @@
+"""Veritabanı bağlantısı ve FastAPI için oturum (session) bağımlılığı."""
+
+from collections.abc import Generator
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.adapters.outbound.persistence import tables  # noqa: F401  (tüm eşlemeleri yükler)
+from app.core.config import settings
+
+engine = create_engine(settings.database_url, pool_pre_ping=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+def get_db() -> Generator[Session, None, None]:
+    """Endpoint'lerde `db: Session = Depends(get_db)` şeklinde kullanılır."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

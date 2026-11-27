@@ -7,7 +7,7 @@
 import logging
 from datetime import UTC, datetime
 
-from app.db.session import SessionLocal
+from app.adapters.outbound.persistence.session import SessionLocal
 from app.worker.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def run_collection_task(
     collection_run_id: int, environment_id: int | None, confirm_production: bool
 ) -> str | None:
-    from app.services.collection_runner import execute_collection_run
+    from app.composition import execute_collection_run
 
     with SessionLocal() as db:
         collection_run = execute_collection_run(
@@ -33,7 +33,7 @@ def run_collection_task(
 
 @celery_app.task(name="app.worker.tasks.dispatch_due_schedules")
 def dispatch_due_schedules() -> list[int]:
-    from app.services.scheduler import celery_enqueue, dispatch_due
+    from app.composition import celery_enqueue, dispatch_due
 
     with SessionLocal() as db:
         created = dispatch_due(db, datetime.now(UTC), celery_enqueue)

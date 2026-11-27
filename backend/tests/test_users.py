@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.db.init_db import ensure_first_admin
-from app.models.user import Role, User
+from app.bootstrap import ensure_first_admin
+from app.domain.users import Role, User
 
 NEW_USER = {
     "email": "yeni@apitest.com",

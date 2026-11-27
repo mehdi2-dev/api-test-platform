@@ -13,13 +13,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.collections import get_enqueuer
+from app.adapters.inbound.http.collections import get_enqueuer
+from app.composition import dispatch_due, execute_collection_run
+from app.domain import cron
+from app.domain.collections import CollectionRun
+from app.domain.schedules import Schedule
+from app.domain.users import Role
 from app.main import app
-from app.models.collection import CollectionRun, Schedule
-from app.models.user import Role
-from app.services import cron
-from app.services.collection_runner import execute_collection_run
-from app.services.scheduler import dispatch_due
 
 IST = ZoneInfo("Europe/Istanbul")
 
