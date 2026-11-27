@@ -12,6 +12,7 @@ from app.domain.api_definitions import ApiDefinition
 from app.domain.collections import Collection, CollectionRun
 from app.domain.environments import Environment
 from app.domain.errors import SecretUnreadable
+from app.domain.notifications import Notification, NotificationChannel
 from app.domain.schedules import Schedule
 from app.domain.testing.runs import ApiTestRun, SendOutcome
 from app.domain.users import User
@@ -329,3 +330,38 @@ class InMemoryScheduleRepository:
 
     def commit(self) -> None:
         pass
+
+
+class InMemoryChannelRepository:
+    def __init__(self) -> None:
+        self.items: dict[int, NotificationChannel] = {}
+
+    def get(self, channel_id: int) -> NotificationChannel | None:
+        return self.items.get(channel_id)
+
+    def list_all(self) -> list[NotificationChannel]:
+        return sorted(self.items.values(), key=lambda channel: channel.name)
+
+    def enabled(self) -> list[NotificationChannel]:
+        return [channel for channel in self.items.values() if channel.enabled]
+
+    def save(self, channel: NotificationChannel) -> None:
+        if channel.id is None:
+            channel.id = max(self.items, default=0) + 1
+        self.items[channel.id] = channel
+
+    def delete(self, channel: NotificationChannel) -> None:
+        self.items.pop(channel.id, None)
+
+
+class RecordingSender:
+    """Mesajları göndermek yerine kaydeder; fail_for'daki kanal tipleri 404 hatası verir."""
+
+    def __init__(self, fail_for: set[str] | None = None) -> None:
+        self.fail_for = fail_for or set()
+        self.sent: list[tuple[str, str, Notification]] = []
+
+    def deliver(self, channel_type: str, target: str, message: Notification) -> None:
+        if channel_type in self.fail_for:
+            raise ValueError("Kanal 404 döndü")
+        self.sent.append((channel_type, target, message))

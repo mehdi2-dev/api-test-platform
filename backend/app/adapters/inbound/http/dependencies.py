@@ -22,6 +22,9 @@ from app.adapters.outbound.persistence.collections import (
     SqlAlchemyCollectionRunRepository,
 )
 from app.adapters.outbound.persistence.environments import SqlAlchemyEnvironmentRepository
+from app.adapters.outbound.persistence.notifications import (
+    SqlAlchemyNotificationChannelRepository,
+)
 from app.adapters.outbound.persistence.schedules import SqlAlchemyScheduleRepository
 from app.adapters.outbound.persistence.test_runs import SqlAlchemyApiTestRunRepository
 from app.adapters.outbound.persistence.users import SqlAlchemyUserRepository
@@ -33,6 +36,7 @@ from app.application.ports.api_definitions import ApiDefinitionRepository
 from app.application.ports.auth import TokenService
 from app.application.ports.collections import CollectionRepository, CollectionRunRepository
 from app.application.ports.environments import EnvironmentRepository
+from app.application.ports.notifications import NotificationChannelRepository
 from app.application.ports.schedules import Clock, ScheduleRepository
 from app.application.ports.security import Cipher
 from app.application.ports.testing import ApiTestRunRepository
@@ -85,6 +89,10 @@ def get_schedule_repository(db: DbSession) -> ScheduleRepository:
     return SqlAlchemyScheduleRepository(db)
 
 
+def get_channel_repository(db: DbSession) -> NotificationChannelRepository:
+    return SqlAlchemyNotificationChannelRepository(db)
+
+
 def get_clock() -> Clock:
     return SystemClock()
 
@@ -104,6 +112,7 @@ Collections = Annotated[CollectionRepository, Depends(get_collection_repository)
 CollectionRuns = Annotated[CollectionRunRepository, Depends(get_collection_run_repository)]
 Schedules = Annotated[ScheduleRepository, Depends(get_schedule_repository)]
 ClockDep = Annotated[Clock, Depends(get_clock)]
+Channels = Annotated[NotificationChannelRepository, Depends(get_channel_repository)]
 
 
 # --- Oturum ve yetki ---

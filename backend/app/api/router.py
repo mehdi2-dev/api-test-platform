@@ -8,11 +8,12 @@ from app.adapters.inbound.http import (
     collections,
     dashboard,
     environments,
+    notifications,
     runs,
     schedules,
     users,
 )
-from app.api import health, notifications
+from app.api import health
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["Sistem"])

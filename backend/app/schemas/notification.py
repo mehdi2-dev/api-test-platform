@@ -1,27 +1,23 @@
 """Bildirim kanalı şemaları (ATOP-48)."""
 
-import re
 from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.domain.errors import InvalidInput
+from app.domain.notifications import check_target as _check_target
+
 ChannelType = Literal["slack", "teams", "webhook", "email"]
 NotifyOn = Literal["failure", "always"]
 
-EMAIL = re.compile(r"^[^@\s,]+@[^@\s,]+\.[^@\s,]+$")
-
 
 def check_target(channel_type: str, target: str) -> str:
-    target = target.strip()
-    if channel_type == "email":
-        addresses = [item.strip() for item in target.split(",") if item.strip()]
-        if not addresses or not all(EMAIL.match(item) for item in addresses):
-            raise ValueError("Geçerli e-posta adres(ler)i girin (virgülle ayırabilirsiniz)")
-        return ", ".join(addresses)
-    if not target.startswith(("http://", "https://")):
-        raise ValueError("Webhook adresi http:// veya https:// ile başlamalı")
-    return target
+    """Kural domain'dedir; pydantic doğrulaması için ValueError'a çevrilir."""
+    try:
+        return _check_target(channel_type, target)
+    except InvalidInput as exc:
+        raise ValueError(exc.message) from exc
 
 
 class ChannelCreate(BaseModel):
