@@ -3,12 +3,9 @@
 Yetkiler:
 - Herkes (giriş yapmış): listeleyebilir ve görüntüleyebilir (gizli değerler maskeli)
 - Admin ve Tester: oluşturabilir, değiştirebilir, silebilir, gönderebilir
-
-Not: İsteği gerçekten gönderen http_runner ve test sonucunu kaydeden servisler ATOP-63'te
-portlara taşınacak; şimdilik bu adaptör onları doğrudan çağırıyor.
 """
 
-import json
+from dataclasses import asdict
 from typing import Annotated
 
 import httpx
@@ -18,24 +15,24 @@ from app.adapters.inbound.http.dependencies import (
     ApiDefinitions,
     CipherDep,
     CurrentUser,
-    DbSession,
     Environments,
+    TestRuns,
     require_roles,
 )
+from app.adapters.outbound.http.sender import HttpxApiSender
 from app.application.ports.security import Cipher
+from app.application.ports.testing import ApiSender
 from app.application.use_cases.api_definitions import (
     CreateApiDefinition,
     DeleteApiDefinition,
     GetApiDefinition,
     ListApiDefinitions,
     PrepareApiRequest,
-    PreparedRequest,
     UpdateApiDefinition,
 )
+from app.application.use_cases.testing import RunApiTest, SendApiRequest
 from app.domain.api_definitions import ApiDefinition
 from app.domain.errors import ProductionConfirmationRequired
-from app.domain.testing.engine import evaluate
-from app.domain.testing.masking import mask_headers, mask_text
 from app.domain.users import Role, User
 from app.schemas.api_definition import (
     ApiDefinitionCreate,
@@ -46,8 +43,7 @@ from app.schemas.api_definition import (
 )
 from app.schemas.assertion import TestRunRead
 from app.schemas.environment import SendOptions
-from app.services import http_runner
-from app.services.test_runs import run_to_read, save_run
+from app.services.test_runs import run_to_read
 
 router = APIRouter(
     prefix="/apis",
@@ -93,6 +89,22 @@ def get_prepare_request(
     apis: ApiDefinitions, environments: Environments, cipher: CipherDep
 ) -> PrepareApiRequest:
     return PrepareApiRequest(apis, environments, cipher)
+
+
+def get_api_sender(transport: HttpTransport) -> ApiSender:
+    return HttpxApiSender(transport)
+
+
+Prepare = Annotated[PrepareApiRequest, Depends(get_prepare_request)]
+Sender = Annotated[ApiSender, Depends(get_api_sender)]
+
+
+def get_send_request(prepare: Prepare, sender: Sender) -> SendApiRequest:
+    return SendApiRequest(prepare, sender)
+
+
+def get_run_test(prepare: Prepare, sender: Sender, runs: TestRuns) -> RunApiTest:
+    return RunApiTest(prepare, sender, runs)
 
 
 def _to_read(api: ApiDefinition, cipher: Cipher) -> ApiDefinitionRead:
@@ -210,25 +222,6 @@ def delete_api(
     use_case(api_id)
 
 
-def _prepare(use_case: PrepareApiRequest, api_id: int, options: SendOptions) -> PreparedRequest:
-    return use_case(
-        api_id,
-        environment_id=options.environment_id,
-        confirm_production=options.confirm_production,
-    )
-
-
-def _send(prepared: PreparedRequest, transport: httpx.BaseTransport | None) -> SendResult:
-    return http_runner.send(
-        prepared.api,
-        prepared.auth,
-        transport=transport,
-        variables=prepared.variables,
-        secret_values=prepared.secrets,
-        environment_name=prepared.environment_name,
-    )
-
-
 @router.post(
     "/{api_id}/send",
     response_model=SendResult,
@@ -262,19 +255,16 @@ def _send(prepared: PreparedRequest, transport: httpx.BaseTransport | None) -> S
 def send_api(
     api_id: int,
     _: Editor,
-    transport: HttpTransport,
-    use_case: Annotated[PrepareApiRequest, Depends(get_prepare_request)],
+    use_case: Annotated[SendApiRequest, Depends(get_send_request)],
     options: SendOptions | None = None,
 ) -> SendResult:
-    prepared = _prepare(use_case, api_id, options or SendOptions())
-    result = _send(prepared, transport)
-    # Ekrana dönen cevapta da gizli değerler ve hassas alanlar maskelenir
-    masked_body = mask_text(result.body, prepared.secrets)
-    if masked_body != result.body:
-        result.body = masked_body
-        result.body_json = json.loads(masked_body) if result.body_json is not None else None
-    result.headers = mask_headers(result.headers, prepared.secrets)
-    return result
+    options = options or SendOptions()
+    outcome = use_case(
+        api_id,
+        environment_id=options.environment_id,
+        confirm_production=options.confirm_production,
+    )
+    return SendResult.model_validate(asdict(outcome))
 
 
 @router.post(
@@ -291,13 +281,14 @@ def send_api(
 def run_api(
     api_id: int,
     user: Editor,
-    db: DbSession,
-    transport: HttpTransport,
-    use_case: Annotated[PrepareApiRequest, Depends(get_prepare_request)],
+    use_case: Annotated[RunApiTest, Depends(get_run_test)],
     options: SendOptions | None = None,
 ) -> TestRunRead:
-    prepared = _prepare(use_case, api_id, options or SendOptions())
-    result = _send(prepared, transport)
-    results = evaluate(prepared.api.assertions or [], result, prepared.variables)
-    run = save_run(db, prepared.api, result, results, user.id, secret_values=prepared.secrets)
+    options = options or SendOptions()
+    run = use_case(
+        api_id,
+        user=user,
+        environment_id=options.environment_id,
+        confirm_production=options.confirm_production,
+    )
     return run_to_read(run)

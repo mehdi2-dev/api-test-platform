@@ -1,4 +1,4 @@
-"""Bir API tanımını gerçek HTTP isteğine çevirip gönderir (ATOP-24, ATOP-26, ATOP-28).
+"""ApiSender portunun httpx adaptörü: API tanımını gerçek HTTP isteğine çevirip gönderir.
 
 Akış:
 1. resolve_spec: tanımdaki {{değişken}}'leri seçilen ortamın değerleriyle doldurur
@@ -18,9 +18,10 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
+from app.domain.api_definitions import ApiDefinition, AuthType, BodyType
+from app.domain.secrets import MASK
+from app.domain.testing.runs import SendOutcome, SentRequest
 from app.domain.testing.variables import mask_secrets, resolve
-from app.models.api_definition import ApiDefinition, AuthType, BodyType
-from app.schemas.api_definition import MASK, SendResult, SentRequest
 
 MAX_BODY_CHARS = 200_000
 # Bu header'ların değeri sonuçta her zaman maskelenir
@@ -123,9 +124,9 @@ def build_request(
     return request, summary
 
 
-def _failed(method: str, url: str, error: str, environment: str | None) -> SendResult:
+def _failed(method: str, url: str, error: str, environment: str | None) -> SendOutcome:
     """İstek hiç gönderilemediğinde dönen sonuç."""
-    return SendResult(
+    return SendOutcome(
         ok=False,
         elapsed_ms=0,
         error=error,
@@ -141,7 +142,7 @@ def send(
     variables: dict[str, str] | None = None,
     secret_values: list[str] | None = None,
     environment_name: str | None = None,
-) -> SendResult:
+) -> SendOutcome:
     """İsteği gönderir. Ağ hatalarında istisna fırlatmaz, sonucu error alanıyla döndürür."""
     secret_values = secret_values or []
     spec = resolve_spec(api, auth, variables or {})
@@ -190,7 +191,7 @@ def send(
         error = f"İstek başarısız: {exc}"
 
     if error is not None:
-        return SendResult(
+        return SendOutcome(
             ok=False,
             elapsed_ms=elapsed(),
             error=mask_secrets(error, secret_values),
@@ -205,7 +206,7 @@ def send(
     except ValueError:
         body_json = None
 
-    return SendResult(
+    return SendOutcome(
         ok=True,
         status_code=response.status_code,
         elapsed_ms=elapsed(),
@@ -217,3 +218,28 @@ def send(
         request=summary,
         environment=environment_name,
     )
+
+
+class HttpxApiSender:
+    """ApiSender portunun httpx adaptörü. Testlerde sahte bir transport verilebilir."""
+
+    def __init__(self, transport: httpx.BaseTransport | None = None) -> None:
+        self._transport = transport
+
+    def send(
+        self,
+        api: ApiDefinition,
+        auth: dict[str, Any],
+        *,
+        variables: dict[str, str],
+        secrets: list[str],
+        environment_name: str | None,
+    ) -> SendOutcome:
+        return send(
+            api,
+            auth,
+            transport=self._transport,
+            variables=variables,
+            secret_values=secrets,
+            environment_name=environment_name,
+        )

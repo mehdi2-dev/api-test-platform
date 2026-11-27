@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.adapters.outbound.persistence.api_definitions import SqlAlchemyApiDefinitionRepository
 from app.adapters.outbound.persistence.environments import SqlAlchemyEnvironmentRepository
+from app.adapters.outbound.persistence.test_runs import SqlAlchemyApiTestRunRepository
 from app.adapters.outbound.persistence.users import SqlAlchemyUserRepository
 from app.adapters.outbound.security.cipher import FernetCipher
 from app.adapters.outbound.security.passwords import BcryptPasswordHasher
@@ -26,6 +27,7 @@ from app.application.ports.api_definitions import ApiDefinitionRepository
 from app.application.ports.auth import TokenService
 from app.application.ports.environments import EnvironmentRepository
 from app.application.ports.security import Cipher
+from app.application.ports.testing import ApiTestRunRepository
 from app.application.ports.users import PasswordHasher, UserRepository
 from app.application.use_cases.auth import AuthenticateUser
 from app.db.session import get_db
@@ -59,6 +61,10 @@ def get_api_definition_repository(db: DbSession) -> ApiDefinitionRepository:
     return SqlAlchemyApiDefinitionRepository(db)
 
 
+def get_test_run_repository(db: DbSession) -> ApiTestRunRepository:
+    return SqlAlchemyApiTestRunRepository(db)
+
+
 def get_cipher() -> Cipher:
     return FernetCipher()
 
@@ -69,6 +75,7 @@ Tokens = Annotated[TokenService, Depends(get_token_service)]
 Environments = Annotated[EnvironmentRepository, Depends(get_environment_repository)]
 CipherDep = Annotated[Cipher, Depends(get_cipher)]
 ApiDefinitions = Annotated[ApiDefinitionRepository, Depends(get_api_definition_repository)]
+TestRuns = Annotated[ApiTestRunRepository, Depends(get_test_run_repository)]
 
 
 # --- Oturum ve yetki ---

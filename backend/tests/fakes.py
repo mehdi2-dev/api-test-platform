@@ -3,11 +3,14 @@
 Use case'ler bunlarla veritabanı, bcrypt veya JWT olmadan, milisaniyeler içinde test edilir.
 """
 
+from typing import Any
+
 from app.application.errors import InvalidToken
 from app.application.ports.auth import TokenKind, TokenPair
 from app.domain.api_definitions import ApiDefinition
 from app.domain.environments import Environment
 from app.domain.errors import SecretUnreadable
+from app.domain.testing.runs import ApiTestRun, SendOutcome
 from app.domain.users import User
 
 
@@ -138,3 +141,40 @@ class InMemoryApiDefinitionRepository:
 
     def delete(self, api: ApiDefinition) -> None:
         self.items.pop(api.id, None)
+
+
+class FakeApiSender:
+    """Ağa çıkmadan, önceden verilen sonucu döndüren gönderici; çağrıları kaydeder."""
+
+    def __init__(self, outcome: SendOutcome) -> None:
+        self.outcome = outcome
+        self.calls: list[dict[str, Any]] = []
+
+    def send(
+        self,
+        api: ApiDefinition,
+        auth: dict[str, Any],
+        *,
+        variables: dict[str, str],
+        secrets: list[str],
+        environment_name: str | None,
+    ) -> SendOutcome:
+        self.calls.append(
+            {
+                "api": api,
+                "auth": auth,
+                "variables": variables,
+                "secrets": secrets,
+                "environment_name": environment_name,
+            }
+        )
+        return self.outcome
+
+
+class InMemoryApiTestRunRepository:
+    def __init__(self) -> None:
+        self.items: list[ApiTestRun] = []
+
+    def add(self, run: ApiTestRun) -> None:
+        run.id = len(self.items) + 1
+        self.items.append(run)
