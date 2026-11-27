@@ -3,6 +3,7 @@
 Use case'ler bunlarla veritabanı, bcrypt veya JWT olmadan, milisaniyeler içinde test edilir.
 """
 
+from datetime import datetime
 from typing import Any
 
 from app.application.errors import InvalidToken
@@ -11,6 +12,7 @@ from app.domain.api_definitions import ApiDefinition
 from app.domain.collections import Collection, CollectionRun
 from app.domain.environments import Environment
 from app.domain.errors import SecretUnreadable
+from app.domain.schedules import Schedule
 from app.domain.testing.runs import ApiTestRun, SendOutcome
 from app.domain.users import User
 
@@ -239,3 +241,57 @@ class RecordingNotifier:
 
     def notify(self, run: CollectionRun) -> None:
         self.notified.append(run)
+
+
+class FixedClock:
+    """Hep aynı anı döndüren saat."""
+
+    def __init__(self, now: datetime) -> None:
+        self._now = now
+
+    def now(self) -> datetime:
+        return self._now
+
+
+class InMemoryScheduleRepository:
+    """Kaydederken ilişkileri (collection, environment) de bağlar; veritabanı bunu kendisi yapar."""
+
+    def __init__(
+        self,
+        runs: InMemoryCollectionRunRepository,
+        collections: InMemoryCollectionRepository,
+        environments: InMemoryEnvironmentRepository,
+    ) -> None:
+        self.items: dict[int, Schedule] = {}
+        self._runs = runs
+        self._collections = collections
+        self._environments = environments
+
+    def get(self, schedule_id: int) -> Schedule | None:
+        return self.items.get(schedule_id)
+
+    def list_all(self) -> list[Schedule]:
+        return list(self.items.values())
+
+    def save(self, schedule: Schedule) -> None:
+        if schedule.id is None:
+            schedule.id = max(self.items, default=0) + 1
+        schedule.collection = self._collections.get(schedule.collection_id)
+        schedule.environment = (
+            self._environments.get(schedule.environment_id) if schedule.environment_id else None
+        )
+        self.items[schedule.id] = schedule
+
+    def delete(self, schedule: Schedule) -> None:
+        self.items.pop(schedule.id, None)
+
+    def due(self, now: datetime) -> list[Schedule]:
+        return [
+            s for s in self.items.values() if s.enabled and s.next_run_at and s.next_run_at <= now
+        ]
+
+    def stage_run(self, run: CollectionRun) -> None:
+        self._runs.save(run)
+
+    def commit(self) -> None:
+        pass

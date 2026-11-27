@@ -5,8 +5,8 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import settings
+from app.domain import cron
 from app.models.test_run import RunStatus
-from app.services import cron
 
 
 def _check_cron(value: str) -> str:

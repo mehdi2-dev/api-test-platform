@@ -15,12 +15,14 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.adapters.outbound.clock import SystemClock
 from app.adapters.outbound.persistence.api_definitions import SqlAlchemyApiDefinitionRepository
 from app.adapters.outbound.persistence.collections import (
     SqlAlchemyCollectionRepository,
     SqlAlchemyCollectionRunRepository,
 )
 from app.adapters.outbound.persistence.environments import SqlAlchemyEnvironmentRepository
+from app.adapters.outbound.persistence.schedules import SqlAlchemyScheduleRepository
 from app.adapters.outbound.persistence.test_runs import SqlAlchemyApiTestRunRepository
 from app.adapters.outbound.persistence.users import SqlAlchemyUserRepository
 from app.adapters.outbound.security.cipher import FernetCipher
@@ -31,6 +33,7 @@ from app.application.ports.api_definitions import ApiDefinitionRepository
 from app.application.ports.auth import TokenService
 from app.application.ports.collections import CollectionRepository, CollectionRunRepository
 from app.application.ports.environments import EnvironmentRepository
+from app.application.ports.schedules import Clock, ScheduleRepository
 from app.application.ports.security import Cipher
 from app.application.ports.testing import ApiTestRunRepository
 from app.application.ports.users import PasswordHasher, UserRepository
@@ -78,6 +81,14 @@ def get_collection_run_repository(db: DbSession) -> CollectionRunRepository:
     return SqlAlchemyCollectionRunRepository(db)
 
 
+def get_schedule_repository(db: DbSession) -> ScheduleRepository:
+    return SqlAlchemyScheduleRepository(db)
+
+
+def get_clock() -> Clock:
+    return SystemClock()
+
+
 def get_cipher() -> Cipher:
     return FernetCipher()
 
@@ -91,6 +102,8 @@ ApiDefinitions = Annotated[ApiDefinitionRepository, Depends(get_api_definition_r
 TestRuns = Annotated[ApiTestRunRepository, Depends(get_test_run_repository)]
 Collections = Annotated[CollectionRepository, Depends(get_collection_repository)]
 CollectionRuns = Annotated[CollectionRunRepository, Depends(get_collection_run_repository)]
+Schedules = Annotated[ScheduleRepository, Depends(get_schedule_repository)]
+ClockDep = Annotated[Clock, Depends(get_clock)]
 
 
 # --- Oturum ve yetki ---
