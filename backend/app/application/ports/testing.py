@@ -28,3 +28,7 @@ class ApiTestRunRepository(Protocol):
     def add(self, run: ApiTestRun) -> None:
         """Kaydı saklar ve id verir."""
         ...
+
+    def for_collection_run(self, collection_run_id: int) -> list[ApiTestRun]:
+        """Bir koleksiyon çalıştırmasının adımlarına ait kayıtlar."""
+        ...

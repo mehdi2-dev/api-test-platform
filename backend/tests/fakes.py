@@ -181,6 +181,9 @@ class InMemoryApiTestRunRepository:
         run.id = len(self.items) + 1
         self.items.append(run)
 
+    def for_collection_run(self, collection_run_id: int) -> list[ApiTestRun]:
+        return [run for run in self.items if run.collection_run_id == collection_run_id]
+
 
 class InMemoryCollectionRepository:
     def __init__(self) -> None:
@@ -189,10 +192,19 @@ class InMemoryCollectionRepository:
     def get(self, collection_id: int) -> Collection | None:
         return self.items.get(collection_id)
 
+    def get_by_name(self, name: str) -> Collection | None:
+        return next((c for c in self.items.values() if c.name == name), None)
+
+    def list_all(self) -> list[Collection]:
+        return sorted(self.items.values(), key=lambda c: c.name)
+
     def save(self, collection: Collection) -> None:
         if collection.id is None:
-            collection.id = len(self.items) + 1
+            collection.id = max(self.items, default=0) + 1
         self.items[collection.id] = collection
+
+    def delete(self, collection: Collection) -> None:
+        self.items.pop(collection.id, None)
 
 
 class InMemoryCollectionRunRepository:
@@ -206,6 +218,14 @@ class InMemoryCollectionRunRepository:
         if run.id is None:
             run.id = len(self.items) + 1
         self.items[run.id] = run
+
+    def latest_for(self, collection_id: int) -> CollectionRun | None:
+        recent = self.recent_for(collection_id, 1)
+        return recent[0] if recent else None
+
+    def recent_for(self, collection_id: int, limit: int) -> list[CollectionRun]:
+        runs = [r for r in self.items.values() if r.collection_id == collection_id]
+        return sorted(runs, key=lambda r: r.id, reverse=True)[:limit]
 
     def discard_changes(self) -> None:
         pass

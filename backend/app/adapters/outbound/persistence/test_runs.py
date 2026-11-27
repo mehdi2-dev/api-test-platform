@@ -15,6 +15,7 @@ from sqlalchemy import (
     Table,
     Text,
     func,
+    select,
 )
 from sqlalchemy.orm import Session
 
@@ -84,3 +85,7 @@ class SqlAlchemyApiTestRunRepository:
         self._session.add(run)
         self._session.commit()
         self._session.refresh(run)
+
+    def for_collection_run(self, collection_run_id: int) -> list[ApiTestRun]:
+        query = select(ApiTestRun).where(test_runs_table.c.collection_run_id == collection_run_id)
+        return list(self._session.scalars(query))

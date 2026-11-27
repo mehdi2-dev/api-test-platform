@@ -20,3 +20,7 @@ class TooManyAttempts(DomainError):
 
 class InvalidToken(Exception):
     """Token'ın imzası bozuk, süresi dolmuş veya türü yanlış."""
+
+
+class QueueUnavailable(DomainError):
+    """Çalıştırma kuyruğa eklenemedi (Redis veya worker çalışmıyor olabilir)."""

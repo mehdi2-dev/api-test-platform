@@ -16,6 +16,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.adapters.outbound.persistence.api_definitions import SqlAlchemyApiDefinitionRepository
+from app.adapters.outbound.persistence.collections import (
+    SqlAlchemyCollectionRepository,
+    SqlAlchemyCollectionRunRepository,
+)
 from app.adapters.outbound.persistence.environments import SqlAlchemyEnvironmentRepository
 from app.adapters.outbound.persistence.test_runs import SqlAlchemyApiTestRunRepository
 from app.adapters.outbound.persistence.users import SqlAlchemyUserRepository
@@ -25,6 +29,7 @@ from app.adapters.outbound.security.tokens import JwtTokenService
 from app.application.errors import AuthenticationFailed
 from app.application.ports.api_definitions import ApiDefinitionRepository
 from app.application.ports.auth import TokenService
+from app.application.ports.collections import CollectionRepository, CollectionRunRepository
 from app.application.ports.environments import EnvironmentRepository
 from app.application.ports.security import Cipher
 from app.application.ports.testing import ApiTestRunRepository
@@ -65,6 +70,14 @@ def get_test_run_repository(db: DbSession) -> ApiTestRunRepository:
     return SqlAlchemyApiTestRunRepository(db)
 
 
+def get_collection_repository(db: DbSession) -> CollectionRepository:
+    return SqlAlchemyCollectionRepository(db)
+
+
+def get_collection_run_repository(db: DbSession) -> CollectionRunRepository:
+    return SqlAlchemyCollectionRunRepository(db)
+
+
 def get_cipher() -> Cipher:
     return FernetCipher()
 
@@ -76,6 +89,8 @@ Environments = Annotated[EnvironmentRepository, Depends(get_environment_reposito
 CipherDep = Annotated[Cipher, Depends(get_cipher)]
 ApiDefinitions = Annotated[ApiDefinitionRepository, Depends(get_api_definition_repository)]
 TestRuns = Annotated[ApiTestRunRepository, Depends(get_test_run_repository)]
+Collections = Annotated[CollectionRepository, Depends(get_collection_repository)]
+CollectionRuns = Annotated[CollectionRunRepository, Depends(get_collection_run_repository)]
 
 
 # --- Oturum ve yetki ---

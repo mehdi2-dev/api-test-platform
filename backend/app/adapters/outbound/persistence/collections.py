@@ -16,6 +16,7 @@ from sqlalchemy import (
     Table,
     Text,
     func,
+    select,
 )
 from sqlalchemy.orm import Session, relationship
 
@@ -150,6 +151,21 @@ class SqlAlchemyCollectionRepository:
     def get(self, collection_id: int) -> Collection | None:
         return self._session.get(Collection, collection_id)
 
+    def get_by_name(self, name: str) -> Collection | None:
+        return self._session.scalar(select(Collection).where(collections_table.c.name == name))
+
+    def list_all(self) -> list[Collection]:
+        return list(self._session.scalars(select(Collection).order_by(collections_table.c.name)))
+
+    def save(self, collection: Collection) -> None:
+        self._session.add(collection)
+        self._session.commit()
+        self._session.refresh(collection)
+
+    def delete(self, collection: Collection) -> None:
+        self._session.delete(collection)
+        self._session.commit()
+
 
 class SqlAlchemyCollectionRunRepository:
     """CollectionRunRepository portunun SQLAlchemy adaptörü."""
@@ -164,6 +180,21 @@ class SqlAlchemyCollectionRunRepository:
         self._session.add(run)
         self._session.commit()
         self._session.refresh(run)
+
+    def _recent(self, collection_id: int, limit: int):
+        table = collection_runs_table
+        return (
+            select(CollectionRun)
+            .where(table.c.collection_id == collection_id)
+            .order_by(table.c.created_at.desc(), table.c.id.desc())
+            .limit(limit)
+        )
+
+    def latest_for(self, collection_id: int) -> CollectionRun | None:
+        return self._session.scalar(self._recent(collection_id, 1))
+
+    def recent_for(self, collection_id: int, limit: int) -> list[CollectionRun]:
+        return list(self._session.scalars(self._recent(collection_id, limit)))
 
     def discard_changes(self) -> None:
         self._session.rollback()

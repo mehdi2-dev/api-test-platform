@@ -130,6 +130,15 @@ class CollectionItem:
         return api is not None and api.is_mutating
 
 
+@dataclass(frozen=True)
+class StepInput:
+    """Kullanıcının verdiği adım: hangi API, etkin mi, cevaptan hangi değişkenler alınacak."""
+
+    api_definition_id: int
+    enabled: bool = True
+    extractions: list[dict[str, Any]] = field(default_factory=list)
+
+
 @dataclass(eq=False, kw_only=True)
 class Collection:
     name: str
@@ -145,6 +154,21 @@ class Collection:
     @property
     def enabled_items(self) -> list[CollectionItem]:
         return [item for item in self.items if item.enabled]
+
+    def replace_items(self, steps: list[StepInput]) -> None:
+        """Adımları verilen sırayla yeniden kurar (sürükle-bırak sonrası sıra buradan gelir).
+
+        Listede olmayan eski adımlar silinir.
+        """
+        self.items = [
+            CollectionItem(
+                api_definition_id=step.api_definition_id,
+                position=index,
+                enabled=step.enabled,
+                extractions=list(step.extractions),
+            )
+            for index, step in enumerate(steps)
+        ]
 
     def risky_steps(self) -> list[str]:
         """Veri değiştirebilecek etkin adımlar: 'POST Teklif oluştur' gibi."""

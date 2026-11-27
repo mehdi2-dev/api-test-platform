@@ -7,7 +7,7 @@ Cevap biçimi FastAPI'nin HTTPException'ı ile aynıdır: {"detail": "..."}.
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from app.application.errors import AuthenticationFailed, TooManyAttempts
+from app.application.errors import AuthenticationFailed, QueueUnavailable, TooManyAttempts
 from app.domain.errors import (
     AccessDenied,
     Conflict,
@@ -25,6 +25,7 @@ STATUS_CODES: list[tuple[type[DomainError], int]] = [
     (TooManyAttempts, status.HTTP_429_TOO_MANY_REQUESTS),
     (InvalidInput, 422),
     (SecretUnreadable, status.HTTP_500_INTERNAL_SERVER_ERROR),
+    (QueueUnavailable, status.HTTP_503_SERVICE_UNAVAILABLE),
 ]
 
 
