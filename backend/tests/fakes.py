@@ -5,6 +5,7 @@ Use case'ler bunlarla veritabanı, bcrypt veya JWT olmadan, milisaniyeler içind
 
 from app.application.errors import InvalidToken
 from app.application.ports.auth import TokenKind, TokenPair
+from app.domain.api_definitions import ApiDefinition
 from app.domain.environments import Environment
 from app.domain.errors import SecretUnreadable
 from app.domain.users import User
@@ -111,3 +112,29 @@ class FakeCipher:
         if not token.startswith("enc:"):
             raise SecretUnreadable("Şifreli veri çözülemedi")
         return token.removeprefix("enc:")
+
+
+class InMemoryApiDefinitionRepository:
+    def __init__(self) -> None:
+        self.items: dict[int, ApiDefinition] = {}
+        self._next_id = 1
+
+    def get(self, api_id: int) -> ApiDefinition | None:
+        return self.items.get(api_id)
+
+    def search(self, name_contains: str | None = None) -> list[ApiDefinition]:
+        found = [
+            api
+            for api in self.items.values()
+            if not name_contains or name_contains.lower() in api.name.lower()
+        ]
+        return sorted(found, key=lambda api: (api.name, api.id))
+
+    def save(self, api: ApiDefinition) -> None:
+        if api.id is None:
+            api.id = self._next_id
+            self._next_id += 1
+        self.items[api.id] = api
+
+    def delete(self, api: ApiDefinition) -> None:
+        self.items.pop(api.id, None)

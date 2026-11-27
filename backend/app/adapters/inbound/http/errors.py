@@ -35,13 +35,20 @@ def status_code_for(error: DomainError) -> int:
     return status.HTTP_400_BAD_REQUEST  # ValidationFailed ve diğer kural ihlalleri
 
 
+def _detail(error: DomainError) -> str | dict[str, str]:
+    """Kodlu hatalarda arayüz koda göre davranabilsin diye {"code", "message"} döner."""
+    if error.code:
+        return {"code": error.code, "message": error.message}
+    return error.message
+
+
 async def domain_error_handler(_: Request, error: DomainError) -> JSONResponse:
     headers = None
     if isinstance(error, TooManyAttempts):
         headers = {"Retry-After": str(error.retry_after)}
     return JSONResponse(
         status_code=status_code_for(error),
-        content={"detail": error.message},
+        content={"detail": _detail(error)},
         headers=headers,
     )
 

@@ -8,6 +8,9 @@ Domain HTTP bilmez; hangi hatanın hangi durum koduna döneceğine giren HTTP ad
 class DomainError(Exception):
     """Tüm iş kuralı hatalarının atası."""
 
+    code: str | None = None
+    """Arayüzün özel davranması gereken hatalarda sabit bir kod (ör. onay iste)."""
+
     def __init__(self, message: str) -> None:
         super().__init__(message)
         self.message = message
@@ -35,3 +38,9 @@ class AccessDenied(DomainError):
 
 class SecretUnreadable(DomainError):
     """Şifreli bir değer çözülemedi (şifreleme anahtarı değişmiş olabilir)."""
+
+
+class ProductionConfirmationRequired(Conflict):
+    """Production ortamında veri değiştiren istek için açık onay gerekiyor."""
+
+    code = "production_confirmation_required"

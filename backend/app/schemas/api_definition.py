@@ -5,17 +5,19 @@ MASK yazılır. Güncellemede MASK geri gönderilirse kayıtlı değer korunur; 
 arayüz gizli değeri bilmeden formu kaydedebilir.
 """
 
-import json
 from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.domain.api_definitions import SECRET_AUTH_FIELDS
+from app.domain.api_definitions import check_json_body as _check_json_body
+from app.domain.errors import InvalidInput
 from app.domain.secrets import MASK
 from app.models.api_definition import AuthType, BodyType, HttpMethod
 from app.schemas.assertion import Assertion
 
-SECRET_FIELDS = ("token", "password", "key_value")
+SECRET_FIELDS = SECRET_AUTH_FIELDS
 
 
 class KeyValue(BaseModel):
@@ -74,13 +76,11 @@ def masked_auth(auth_type: AuthType, stored: dict[str, Any]) -> AuthConfig:
 
 
 def check_json_body(body_type: BodyType, body: str | None) -> None:
-    if body_type == BodyType.JSON and body and body.strip():
-        try:
-            json.loads(body)
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"Body geçerli bir JSON değil (satır {exc.lineno}, sütun {exc.colno}): {exc.msg}"
-            ) from exc
+    """Kural domain'dedir; pydantic doğrulaması için ValueError'a çevrilir."""
+    try:
+        _check_json_body(body_type, body)
+    except InvalidInput as exc:
+        raise ValueError(exc.message) from exc
 
 
 def _check_url(value: str) -> str:

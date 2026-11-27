@@ -15,12 +15,14 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.adapters.outbound.persistence.api_definitions import SqlAlchemyApiDefinitionRepository
 from app.adapters.outbound.persistence.environments import SqlAlchemyEnvironmentRepository
 from app.adapters.outbound.persistence.users import SqlAlchemyUserRepository
 from app.adapters.outbound.security.cipher import FernetCipher
 from app.adapters.outbound.security.passwords import BcryptPasswordHasher
 from app.adapters.outbound.security.tokens import JwtTokenService
 from app.application.errors import AuthenticationFailed
+from app.application.ports.api_definitions import ApiDefinitionRepository
 from app.application.ports.auth import TokenService
 from app.application.ports.environments import EnvironmentRepository
 from app.application.ports.security import Cipher
@@ -53,6 +55,10 @@ def get_environment_repository(db: DbSession) -> EnvironmentRepository:
     return SqlAlchemyEnvironmentRepository(db)
 
 
+def get_api_definition_repository(db: DbSession) -> ApiDefinitionRepository:
+    return SqlAlchemyApiDefinitionRepository(db)
+
+
 def get_cipher() -> Cipher:
     return FernetCipher()
 
@@ -62,6 +68,7 @@ Hasher = Annotated[PasswordHasher, Depends(get_password_hasher)]
 Tokens = Annotated[TokenService, Depends(get_token_service)]
 Environments = Annotated[EnvironmentRepository, Depends(get_environment_repository)]
 CipherDep = Annotated[Cipher, Depends(get_cipher)]
+ApiDefinitions = Annotated[ApiDefinitionRepository, Depends(get_api_definition_repository)]
 
 
 # --- Oturum ve yetki ---
