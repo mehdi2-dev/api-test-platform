@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field
 
-from app.models.user import Role
+from app.domain.users import Role
 
 
 def _fits_bcrypt(password: str) -> str:

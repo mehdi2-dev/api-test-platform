@@ -21,7 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
-from app.db.base import Base
+from app.adapters.outbound.persistence.base import Base
 from app.domain.reporting import RunHistoryFilter
 from app.domain.testing.runs import ApiTestRun, RunStatus
 

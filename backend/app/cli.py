@@ -13,15 +13,15 @@ from cryptography.fernet import Fernet
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.adapters.outbound.security.crypto import rotate_text
 from app.core.config import settings
-from app.core.crypto import rotate_text
 
 
 def rotate_all(db: Session) -> dict[str, int]:
     """Şifreli tüm alanları güncel ENCRYPTION_KEY ile yeniden şifreler (ATOP-49)."""
-    from app.models.api_definition import ApiDefinition
-    from app.models.environment import EnvironmentVariable
-    from app.models.notification import NotificationChannel
+    from app.domain.api_definitions import ApiDefinition
+    from app.domain.environments import EnvironmentVariable
+    from app.domain.notifications import NotificationChannel
 
     counts = {"api_auth": 0, "environment_secrets": 0, "notification_targets": 0}
     for api in db.scalars(
@@ -62,10 +62,10 @@ def main(argv: list[str] | None = None) -> int:
         print("Güvenlik ayarları tamam." if not warnings else f"{len(warnings)} uyarı var.")
         return 1 if warnings and settings.environment == "production" else 0
 
-    from app.db.session import SessionLocal
+    from app.adapters.outbound.persistence.session import SessionLocal
 
     if args.command == "seed-demo":
-        from app.services.demo_seed import seed_demo
+        from app.adapters.inbound.demo_seed import seed_demo
 
         with SessionLocal() as db:
             result = seed_demo(db, None)

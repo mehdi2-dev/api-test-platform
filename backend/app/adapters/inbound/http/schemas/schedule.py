@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import settings
 from app.domain import cron
-from app.models.test_run import RunStatus
+from app.domain.testing.runs import RunStatus
 
 
 def _check_cron(value: str) -> str:

@@ -20,7 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
-from app.db.base import Base
+from app.adapters.outbound.persistence.base import Base
 from app.domain.api_definitions import ApiDefinition, AuthType, BodyType, HttpMethod
 
 

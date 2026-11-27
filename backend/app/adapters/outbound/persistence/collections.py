@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session, relationship
 from app.adapters.outbound.persistence.api_definitions import (  # noqa: F401  (eşlemeyi yükler)
     api_definitions_table,
 )
-from app.db.base import Base
+from app.adapters.outbound.persistence.base import Base
 from app.domain.api_definitions import ApiDefinition
 from app.domain.collections import Collection, CollectionItem, CollectionRun, RunState, RunTrigger
 from app.domain.testing.runs import RunStatus

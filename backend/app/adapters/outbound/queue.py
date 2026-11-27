@@ -1,6 +1,6 @@
 """RunQueue portunun adaptörü.
 
-Gerçekte Celery'ye gönderen fonksiyonu (app.services.scheduler.celery_enqueue) sarar;
+Gerçekte Celery'ye gönderen fonksiyonu (app.composition.celery_enqueue) sarar;
 testlerde Celery olmadan çalışan bir fonksiyon verilebilir.
 """
 

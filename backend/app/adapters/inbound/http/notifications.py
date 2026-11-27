@@ -15,6 +15,12 @@ from app.adapters.inbound.http.dependencies import (
     ClockDep,
     require_roles,
 )
+from app.adapters.inbound.http.schemas.notification import (
+    ChannelCreate,
+    ChannelRead,
+    ChannelTestResult,
+    ChannelUpdate,
+)
 from app.adapters.outbound.notifications.senders import ChannelSender
 from app.application.ports.security import Cipher
 from app.application.use_cases.notifications import (
@@ -26,7 +32,6 @@ from app.application.use_cases.notifications import (
 )
 from app.domain.notifications import NotificationChannel
 from app.domain.users import Role, User
-from app.schemas.notification import ChannelCreate, ChannelRead, ChannelTestResult, ChannelUpdate
 
 router = APIRouter(
     prefix="/notifications",

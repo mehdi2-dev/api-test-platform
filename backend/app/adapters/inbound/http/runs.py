@@ -13,6 +13,9 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 
 from app.adapters.inbound.http.dependencies import CurrentUser, TestRuns
+from app.adapters.inbound.http.presenters import run_to_read, run_to_summary
+from app.adapters.inbound.http.schemas.assertion import TestRunRead, TestRunSummary
+from app.adapters.inbound.http.schemas.reporting import RunPage
 from app.application.use_cases.reporting import (
     GetBaseline,
     GetTestRun,
@@ -22,9 +25,6 @@ from app.application.use_cases.reporting import (
 from app.core.config import settings
 from app.domain.reporting import RunHistoryFilter
 from app.domain.testing.runs import RunStatus
-from app.schemas.assertion import TestRunRead, TestRunSummary
-from app.schemas.reporting import RunPage
-from app.services.test_runs import run_to_read, run_to_summary
 
 router = APIRouter(
     prefix="/runs",

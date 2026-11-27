@@ -19,7 +19,7 @@ from app.domain.testing.rules import (  # noqa: F401  (eski import'lar için yen
     AssertionType,
     normalize_rule,
 )
-from app.models.test_run import RunStatus
+from app.domain.testing.runs import RunStatus
 
 
 class Assertion(BaseModel):

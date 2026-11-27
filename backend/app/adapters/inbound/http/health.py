@@ -8,8 +8,8 @@ from fastapi import APIRouter, Response, status
 from pydantic import BaseModel
 from sqlalchemy import text
 
+from app.adapters.outbound.persistence.session import engine
 from app.core.config import settings
-from app.db.session import engine
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

@@ -5,9 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 
 from app.adapters.inbound.http.dependencies import Hasher, Users, require_roles
+from app.adapters.inbound.http.schemas.user import UserCreate, UserRead, UserUpdate
 from app.application.use_cases.users import CreateUser, GetUser, ListUsers, UpdateUser
 from app.domain.users import Role, User
-from app.schemas.user import UserCreate, UserRead, UserUpdate
 
 router = APIRouter(
     prefix="/users",

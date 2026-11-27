@@ -1,9 +1,11 @@
-"""Geçiş dönemi (ATOP-63): koleksiyon çalıştırma artık use case'lerde.
+"""Kompozisyon kökü: use case'leri gerçek adaptörlerle kuran fonksiyonlar.
 
-Asıl akış app.application.use_cases.collection_runs içindedir. Henüz taşınmamış
-router'lar, zamanlayıcı ve worker buradaki fonksiyonları kullandığı için bunlar,
-use case'leri gerçek adaptörlerle kuran ince sarmalayıcılardır; ATOP-65'te kaldırılacak.
+HTTP router'ları (FastAPI bağımlılıklarıyla), Celery görevleri ve CLI, use case'leri
+buradan alır. Hangi porta hangi adaptörün takılacağına karar verilen yer burasıdır.
 """
+
+from collections.abc import Callable
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy.orm import Session
@@ -15,7 +17,9 @@ from app.adapters.outbound.persistence.collections import (
     SqlAlchemyCollectionRunRepository,
 )
 from app.adapters.outbound.persistence.environments import SqlAlchemyEnvironmentRepository
+from app.adapters.outbound.persistence.schedules import SqlAlchemyScheduleRepository
 from app.adapters.outbound.persistence.test_runs import SqlAlchemyApiTestRunRepository
+from app.adapters.outbound.queue import CallableRunQueue
 from app.adapters.outbound.security.cipher import FernetCipher
 from app.application.use_cases.collection_runs import (  # noqa: F401
     ExecuteQueuedRun,
@@ -23,6 +27,9 @@ from app.application.use_cases.collection_runs import (  # noqa: F401
     RunCollection,
     RunContext,
 )
+from app.application.use_cases.collections import QUEUE_ERROR  # noqa: F401
+from app.application.use_cases.schedules import DispatchDueSchedules
+from app.core.config import settings
 from app.domain.api_definitions import MUTATING_METHODS  # noqa: F401
 from app.domain.collections import (  # noqa: F401
     Collection,
@@ -32,6 +39,10 @@ from app.domain.collections import (  # noqa: F401
     extract_value,
 )
 from app.domain.errors import ProductionConfirmationRequired  # noqa: F401
+from app.domain.schedules import next_run
+
+# (collection_run_id, environment_id, confirm_production) -> kuyruğa at
+Enqueue = Callable[[int, int | None, bool], None]
 
 
 def preparer(db: Session) -> PrepareCollectionRun:
@@ -97,3 +108,27 @@ def execute_collection_run(
         runner(db, transport),
         SafeRunNotifier(db, transport),
     )(collection_run_id, environment_id, confirm_production)
+
+
+# --- Zamanlama ---
+
+
+def celery_enqueue(collection_run_id: int, environment_id: int | None, confirm: bool) -> None:
+    """Gerçek kuyruk: Celery worker'a gönder."""
+    from app.worker.tasks import run_collection_task  # celery'yi sadece gerekince yükle
+
+    run_collection_task.delay(collection_run_id, environment_id, confirm)
+
+
+def compute_next(cron_text: str, after: datetime | None = None) -> datetime:
+    return next_run(cron_text, after or datetime.now(UTC), settings.timezone)
+
+
+def dispatch_due(db: Session, now: datetime, enqueue: Enqueue) -> list[int]:
+    """Zamanı gelen planları kuyruğa atar (Celery Beat her dakika çağırır)."""
+    return DispatchDueSchedules(
+        SqlAlchemyScheduleRepository(db),
+        SqlAlchemyCollectionRunRepository(db),
+        CallableRunQueue(enqueue),
+        settings.timezone,
+    )(now)

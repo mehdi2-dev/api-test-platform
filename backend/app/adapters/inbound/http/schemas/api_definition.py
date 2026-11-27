@@ -10,12 +10,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.domain.api_definitions import SECRET_AUTH_FIELDS
+from app.adapters.inbound.http.schemas.assertion import Assertion
+from app.domain.api_definitions import SECRET_AUTH_FIELDS, AuthType, BodyType, HttpMethod
 from app.domain.api_definitions import check_json_body as _check_json_body
 from app.domain.errors import InvalidInput
 from app.domain.secrets import MASK
-from app.models.api_definition import AuthType, BodyType, HttpMethod
-from app.schemas.assertion import Assertion
 
 SECRET_FIELDS = SECRET_AUTH_FIELDS
 

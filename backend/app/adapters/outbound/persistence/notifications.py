@@ -6,7 +6,7 @@ Tablo şeması eski modelle birebir aynıdır; migration gerekmez.
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Table, Text, func, select
 from sqlalchemy.orm import Session
 
-from app.db.base import Base
+from app.adapters.outbound.persistence.base import Base
 from app.domain.notifications import NotificationChannel
 
 notification_channels_table = Table(

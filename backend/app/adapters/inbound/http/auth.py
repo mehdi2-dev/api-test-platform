@@ -9,13 +9,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 
 from app.adapters.inbound.http.dependencies import CurrentUser, Hasher, Tokens, Users
+from app.adapters.inbound.http.schemas.auth import LoginRequest, RefreshRequest
+from app.adapters.inbound.http.schemas.auth import TokenPair as TokenPairSchema
+from app.adapters.inbound.http.schemas.user import UserRead
 from app.adapters.outbound.security.login_limiter import login_limiter
 from app.application.ports.auth import TokenPair
 from app.application.use_cases.auth import INVALID_CREDENTIALS, Login, RefreshTokens
 from app.domain.users import User
-from app.schemas.auth import LoginRequest, RefreshRequest
-from app.schemas.auth import TokenPair as TokenPairSchema
-from app.schemas.user import UserRead
 
 router = APIRouter(prefix="/auth", tags=["Kimlik Doğrulama"])
 

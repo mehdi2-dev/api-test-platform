@@ -7,7 +7,7 @@ sonraki task'larda eklenecek.
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, TimestampMixin
+from app.adapters.outbound.persistence.base import Base, TimestampMixin
 
 
 class AppInfo(TimestampMixin, Base):

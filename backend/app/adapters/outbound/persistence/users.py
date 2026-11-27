@@ -7,7 +7,7 @@ Tablo şeması eski modelle birebir aynıdır; migration gerekmez.
 from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String, Table, func, select
 from sqlalchemy.orm import Session
 
-from app.db.base import Base
+from app.adapters.outbound.persistence.base import Base
 from app.domain.users import Role, User
 
 users_table = Table(

@@ -19,6 +19,16 @@ from app.adapters.inbound.http.dependencies import (
     TestRuns,
     require_roles,
 )
+from app.adapters.inbound.http.presenters import run_to_read
+from app.adapters.inbound.http.schemas.api_definition import (
+    ApiDefinitionCreate,
+    ApiDefinitionRead,
+    ApiDefinitionUpdate,
+    SendResult,
+    masked_auth,
+)
+from app.adapters.inbound.http.schemas.assertion import TestRunRead
+from app.adapters.inbound.http.schemas.environment import SendOptions
 from app.adapters.outbound.http.sender import HttpxApiSender
 from app.application.ports.security import Cipher
 from app.application.ports.testing import ApiSender
@@ -34,16 +44,6 @@ from app.application.use_cases.testing import RunApiTest, SendApiRequest
 from app.domain.api_definitions import ApiDefinition
 from app.domain.errors import ProductionConfirmationRequired
 from app.domain.users import Role, User
-from app.schemas.api_definition import (
-    ApiDefinitionCreate,
-    ApiDefinitionRead,
-    ApiDefinitionUpdate,
-    SendResult,
-    masked_auth,
-)
-from app.schemas.assertion import TestRunRead
-from app.schemas.environment import SendOptions
-from app.services.test_runs import run_to_read
 
 router = APIRouter(
     prefix="/apis",

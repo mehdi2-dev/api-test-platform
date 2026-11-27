@@ -4,8 +4,8 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
-from app.schemas.assertion import TestRunSummary
-from app.schemas.collection import CollectionRunSummary
+from app.adapters.inbound.http.schemas.assertion import TestRunSummary
+from app.adapters.inbound.http.schemas.collection import CollectionRunSummary
 
 
 class Totals(BaseModel):

@@ -18,13 +18,13 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session, relationship
 
+from app.adapters.outbound.persistence.base import Base
 from app.adapters.outbound.persistence.collections import (  # noqa: F401  (eşlemeyi yükler)
     collections_table,
 )
 from app.adapters.outbound.persistence.environments import (  # noqa: F401
     environments_table,
 )
-from app.db.base import Base
 from app.domain.collections import Collection, CollectionRun
 from app.domain.environments import Environment
 from app.domain.schedules import Schedule

@@ -26,6 +26,7 @@ from app.adapters.outbound.persistence.notifications import (
     SqlAlchemyNotificationChannelRepository,
 )
 from app.adapters.outbound.persistence.schedules import SqlAlchemyScheduleRepository
+from app.adapters.outbound.persistence.session import get_db
 from app.adapters.outbound.persistence.test_runs import SqlAlchemyApiTestRunRepository
 from app.adapters.outbound.persistence.users import SqlAlchemyUserRepository
 from app.adapters.outbound.security.cipher import FernetCipher
@@ -42,7 +43,6 @@ from app.application.ports.security import Cipher
 from app.application.ports.testing import ApiTestRunRepository
 from app.application.ports.users import PasswordHasher, UserRepository
 from app.application.use_cases.auth import AuthenticateUser
-from app.db.session import get_db
 from app.domain.users import Role, User
 
 bearer_scheme = HTTPBearer(auto_error=False, description="Giriş yapınca aldığınız access token")

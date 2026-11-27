@@ -22,6 +22,23 @@ from app.adapters.inbound.http.dependencies import (
     TestRuns,
     require_roles,
 )
+from app.adapters.inbound.http.presenters import run_to_read
+from app.adapters.inbound.http.schemas.api_definition import ApiDefinitionCreate
+from app.adapters.inbound.http.schemas.collection import (
+    CollectionCreate,
+    CollectionExport,
+    CollectionItemIn,
+    CollectionItemRead,
+    CollectionRead,
+    CollectionRunRead,
+    CollectionRunSummary,
+    CollectionSummary,
+    CollectionUpdate,
+    DemoSeedResult,
+    ImportResult,
+    StepResult,
+)
+from app.adapters.inbound.http.schemas.environment import SendOptions
 from app.adapters.outbound.queue import CallableRunQueue
 from app.application.use_cases.collections import (
     CollectionRunDetails,
@@ -40,30 +57,12 @@ from app.application.use_cases.collections import (
     UpdateCollection,
 )
 from app.application.use_cases.environments import UNCHANGED
+from app.composition import Enqueue, celery_enqueue, preparer, runner
 from app.domain.api_definitions import SECRET_AUTH_FIELDS
 from app.domain.collections import Collection, CollectionItem, CollectionRun, StepInput
 from app.domain.errors import InvalidInput
 from app.domain.secrets import MASK
 from app.domain.users import Role, User
-from app.schemas.api_definition import ApiDefinitionCreate
-from app.schemas.collection import (
-    CollectionCreate,
-    CollectionExport,
-    CollectionItemIn,
-    CollectionItemRead,
-    CollectionRead,
-    CollectionRunRead,
-    CollectionRunSummary,
-    CollectionSummary,
-    CollectionUpdate,
-    DemoSeedResult,
-    ImportResult,
-    StepResult,
-)
-from app.schemas.environment import SendOptions
-from app.services.collection_runner import preparer, runner
-from app.services.scheduler import Enqueue, celery_enqueue
-from app.services.test_runs import run_to_read
 
 router = APIRouter(
     prefix="/collections",
@@ -358,7 +357,7 @@ def import_collection(
     responses={403: {"description": "Sadece Admin"}},
 )
 def seed_demo_endpoint(user: AdminUser, db: DbSession) -> DemoSeedResult:
-    from app.services.demo_seed import seed_demo
+    from app.adapters.inbound.demo_seed import seed_demo
 
     return seed_demo(db, user.id)
 

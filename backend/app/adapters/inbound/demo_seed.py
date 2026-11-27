@@ -14,13 +14,22 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.adapters.inbound.http.collections import import_from_export
+from app.adapters.inbound.http.schemas.collection import (
+    CollectionExport,
+    DemoSeedResult,
+    SeededCollection,
+)
+from app.adapters.outbound.persistence.api_definitions import SqlAlchemyApiDefinitionRepository
+from app.adapters.outbound.persistence.collections import SqlAlchemyCollectionRepository
+from app.adapters.outbound.security.cipher import FernetCipher
+from app.adapters.outbound.security.crypto import encrypt_text
+from app.application.use_cases.collections import ImportCollection
 from app.core.config import settings
-from app.core.crypto import encrypt_text
-from app.models.collection import Collection
-from app.models.environment import Environment, EnvironmentVariable
-from app.schemas.collection import CollectionExport, DemoSeedResult, SeededCollection
+from app.domain.collections import Collection
+from app.domain.environments import Environment, EnvironmentVariable
 
-EXAMPLES_DIR = Path(__file__).resolve().parents[2] / "examples"
+EXAMPLES_DIR = Path(__file__).resolve().parents[3] / "examples"
 DEMO_ENVIRONMENT = "Demo"
 
 
@@ -48,9 +57,13 @@ def example_files() -> list[Path]:
     return sorted(EXAMPLES_DIR.glob("*.json"))
 
 
-def seed_demo(db: Session, user_id: int | None) -> DemoSeedResult:
-    from app.api.collections import create_from_export
+def _importer(db: Session) -> ImportCollection:
+    return ImportCollection(
+        SqlAlchemyCollectionRepository(db), SqlAlchemyApiDefinitionRepository(db), FernetCipher()
+    )
 
+
+def seed_demo(db: Session, user_id: int | None) -> DemoSeedResult:
     environment, environment_created = _ensure_environment(db)
     collections: list[SeededCollection] = []
     for path in example_files():
@@ -59,7 +72,7 @@ def seed_demo(db: Session, user_id: int | None) -> DemoSeedResult:
         if existing is not None:
             collections.append(SeededCollection(id=existing.id, name=existing.name, created=False))
             continue
-        collection, _ = create_from_export(db, data, user_id)
+        collection, _ = import_from_export(_importer(db), data, user_id)
         collections.append(SeededCollection(id=collection.id, name=collection.name, created=True))
     return DemoSeedResult(
         environment_id=environment.id,

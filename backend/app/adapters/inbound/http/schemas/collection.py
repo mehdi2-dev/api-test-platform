@@ -5,10 +5,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.adapters.inbound.http.schemas.assertion import TestRunRead
 from app.domain.testing import jsonpath
+from app.domain.testing.runs import RunStatus
 from app.domain.testing.variables import VARIABLE_NAME
-from app.models.test_run import RunStatus
-from app.schemas.assertion import TestRunRead
 
 VARIABLE_PATTERN = f"^{VARIABLE_NAME}$"
 

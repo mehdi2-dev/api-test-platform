@@ -18,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session, relationship
 
-from app.db.base import Base
+from app.adapters.outbound.persistence.base import Base
 from app.domain.environments import Environment, EnvironmentVariable
 
 environments_table = Table(

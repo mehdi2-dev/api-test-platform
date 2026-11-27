@@ -19,6 +19,13 @@ from app.adapters.inbound.http.dependencies import (
     Schedules,
     require_roles,
 )
+from app.adapters.inbound.http.schemas.collection import CollectionRunSummary
+from app.adapters.inbound.http.schemas.schedule import (
+    CronPreview,
+    ScheduleCreate,
+    ScheduleRead,
+    ScheduleUpdate,
+)
 from app.adapters.outbound.queue import CallableRunQueue
 from app.application.use_cases.environments import UNCHANGED
 from app.application.use_cases.schedules import (
@@ -32,8 +39,6 @@ from app.application.use_cases.schedules import (
 )
 from app.core.config import settings
 from app.domain.users import Role, User
-from app.schemas.collection import CollectionRunSummary
-from app.schemas.schedule import CronPreview, ScheduleCreate, ScheduleRead, ScheduleUpdate
 
 router = APIRouter(
     prefix="/schedules",

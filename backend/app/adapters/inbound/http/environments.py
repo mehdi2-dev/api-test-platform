@@ -15,6 +15,13 @@ from app.adapters.inbound.http.dependencies import (
     Environments,
     require_roles,
 )
+from app.adapters.inbound.http.schemas.environment import (
+    EnvironmentCreate,
+    EnvironmentRead,
+    EnvironmentUpdate,
+    VariableIn,
+    VariableRead,
+)
 from app.application.use_cases.environments import (
     UNCHANGED,
     CreateEnvironment,
@@ -25,13 +32,6 @@ from app.application.use_cases.environments import (
 )
 from app.domain.environments import Environment, VariableInput
 from app.domain.users import Role, User
-from app.schemas.environment import (
-    EnvironmentCreate,
-    EnvironmentRead,
-    EnvironmentUpdate,
-    VariableIn,
-    VariableRead,
-)
 
 router = APIRouter(
     prefix="/environments",

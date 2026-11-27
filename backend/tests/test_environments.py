@@ -7,13 +7,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.apis import get_http_transport
-from app.core.crypto import decrypt_text
+from app.adapters.inbound.http.apis import get_http_transport
+from app.adapters.inbound.http.schemas.api_definition import MASK
+from app.adapters.outbound.security.crypto import decrypt_text
+from app.domain.environments import Environment
 from app.domain.testing.variables import find_variables, mask_secrets, resolve
+from app.domain.users import Role
 from app.main import app
-from app.models.environment import Environment
-from app.models.user import Role
-from app.schemas.api_definition import MASK
 
 DEV_TOKEN = "dev-gizli-token-42"
 

@@ -10,11 +10,11 @@ from fastapi import APIRouter, Depends, Query
 
 from app.adapters.inbound.http.collections import run_summary_fields
 from app.adapters.inbound.http.dependencies import ClockDep, CollectionRuns, CurrentUser, TestRuns
+from app.adapters.inbound.http.presenters import run_to_summary
+from app.adapters.inbound.http.schemas.collection import CollectionRunSummary
+from app.adapters.inbound.http.schemas.reporting import ApiStat, DailyPoint, Dashboard, Totals
 from app.application.use_cases.reporting import BuildDashboard
 from app.core.config import settings
-from app.schemas.collection import CollectionRunSummary
-from app.schemas.reporting import ApiStat, DailyPoint, Dashboard, Totals
-from app.services.test_runs import run_to_summary
 
 router = APIRouter(
     prefix="/dashboard", tags=["Raporlama"], responses={401: {"description": "Giriş yapılmamış"}}

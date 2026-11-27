@@ -1,6 +1,6 @@
-"""Cipher portunun Fernet adaptörü (anahtar yönetimi app.core.crypto içinde)."""
+"""Cipher portunun Fernet adaptörü (anahtar yönetimi crypto.py içinde)."""
 
-from app.core import crypto
+from app.adapters.outbound.security import crypto
 from app.domain.errors import SecretUnreadable
 
 
